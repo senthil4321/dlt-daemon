@@ -116,13 +116,15 @@ unsigned int dlt_offline_trace_storage_dir_info(char *path, char *file_name, cha
     }
 
     if (num > 0) {
-        if (tmp_old != NULL)
-            if (strlen(tmp_old) < NAME_MAX)
-                strncpy(oldest, tmp_old, NAME_MAX);
+        if ((tmp_old != NULL) && (strlen(tmp_old) < NAME_MAX)) {
+            strncpy(oldest, tmp_old, NAME_MAX);
+            oldest[NAME_MAX] = '\0';
+        }
 
-        if (tmp_new != NULL)
-            if (strlen(tmp_old) < NAME_MAX)
-                strncpy(newest, tmp_new, NAME_MAX);
+        if ((tmp_new != NULL) && (strlen(tmp_old) < NAME_MAX)) {
+            strncpy(newest, tmp_new, NAME_MAX);
+            oldest[NAME_MAX] = '\0';
+        }
     }
 
     /* free scandir result */
@@ -195,7 +197,7 @@ DltReturnValue dlt_offline_trace_create_new_file(DltOfflineTrace *trace)
                        DLT_OFFLINETRACE_FILENAME_TIMESTAMP_DELI, timestamp,
                        DLT_OFFLINETRACE_FILENAME_EXT);
 
-        if ((ret < 0) || (ret >= (int)sizeof(trace->filename))) {
+        if ((ret < 0) || ((size_t)ret >= (int)sizeof(trace->filename))) {
             printf("dlt_offlinetrace filename cannot be concatenated\n");
             return DLT_RETURN_ERROR;
         }
@@ -203,7 +205,7 @@ DltReturnValue dlt_offline_trace_create_new_file(DltOfflineTrace *trace)
         ret = snprintf(file_path, sizeof(file_path), "%s/%s",
                        trace->directory, trace->filename);
 
-        if ((ret < 0) || (ret >= (int)sizeof(file_path))) {
+        if ((ret < 0) || ((size_t)ret >= (int)sizeof(file_path))) {
             printf("dlt_offlinetrace file path cannot be concatenated\n");
             return DLT_RETURN_ERROR;
         }

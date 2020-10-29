@@ -54,8 +54,6 @@
 
 #include <ctype.h>      /* for isprint() */
 #include <stdlib.h>     /* for atoi() */
-#include <sys/stat.h>   /* for S_IRUSR, S_IWUSR, S_IRGRP, S_IROTH */
-#include <fcntl.h>      /* for open() */
 #include <sys/uio.h>    /* for writev() */
 #include <string.h>     /* for open() */
 
@@ -78,7 +76,7 @@ typedef struct
 {
     uint32_t service_id;            /**< service ID */
     uint8_t status;                 /**< response status */
-} PACKED DltServiceHeader;
+} DLT_PACKED DltServiceHeader;
 
 DltClient g_dltclient;
 

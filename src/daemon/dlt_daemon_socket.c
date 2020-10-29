@@ -34,7 +34,6 @@
 #include <stdlib.h>     /* for atoi() and exit() */
 #include <string.h>     /* for memset() */
 #include <unistd.h>     /* for close() */
-#include <fcntl.h>
 #include <signal.h>
 #include <syslog.h>
 #include <errno.h>
@@ -44,7 +43,6 @@
 #ifdef linux
 #   include <sys/timerfd.h>
 #endif
-#include <sys/stat.h>
 #include <sys/time.h>
 #if defined(linux) && defined(__NR_statx)
 #   include <linux/stat.h>
@@ -193,15 +191,16 @@ int dlt_daemon_socket_sendreliable(int sock, void *data_buffer, int message_size
     int data_sent = 0;
 
     while (data_sent < message_size) {
-        ssize_t ret = send(sock, (char *)data_buffer + data_sent, message_size - data_sent, 0);
+        ssize_t ret = send(sock,
+                           (uint8_t*)data_buffer + data_sent,
+                           message_size - data_sent,
+                           0);
 
         if (ret < 0) {
             dlt_vlog(LOG_WARNING,
-                     "dlt_daemon_socket_sendreliable: socket send failed [errno: %d]!\n",
-                     errno);
+                     "%s: socket send failed [errno: %d]!\n", __func__, errno);
             return DLT_DAEMON_ERROR_SEND_FAILED;
-        }
-        else {
+        } else {
             data_sent += ret;
         }
     }
