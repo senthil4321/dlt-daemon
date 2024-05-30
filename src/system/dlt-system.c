@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -49,6 +49,7 @@
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
+#include <stdlib.h>
 
 #if defined(DLT_SYSTEMD_WATCHDOG_ENABLE) || defined(DLT_SYSTEMD_ENABLE)
 #   include "sd-daemon.h"
@@ -58,8 +59,8 @@ DLT_DECLARE_CONTEXT(dltsystem)
 
 int main(int argc, char *argv[])
 {
-    DltSystemCliOptions options;
-    DltSystemConfiguration config;
+    DltSystemCliOptions options = {0};
+    DltSystemConfiguration config = {0};
 
 #if defined(DLT_SYSTEMD_WATCHDOG_ENABLE) || defined(DLT_SYSTEMD_ENABLE)
     int ret;
@@ -112,12 +113,12 @@ int main(int argc, char *argv[])
     signal(SIGQUIT, dlt_system_signal_handler);
     signal(SIGINT, dlt_system_signal_handler);
 
-    DLT_LOG(dltsystem, DLT_LOG_DEBUG, DLT_STRING("Launching threads."));
+    DLT_LOG(dltsystem, DLT_LOG_DEBUG, DLT_STRING("Initializing all processes and starting poll for events."));
 
+    start_dlt_system_processes(&config);
 
-    start_threads(&config);
-    join_threads();
-    return 0;
+    cleanup_config(&config, &options);
+    exit(0);
 }
 
 

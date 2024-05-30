@@ -5,14 +5,14 @@
  * This code is developed by Advanced Driver Information Technology.
  * Copyright of Advanced Driver Information Technology, Bosch and DENSO.
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -33,6 +33,7 @@
 
 #include <sys/socket.h>
 #include <syslog.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include "dlt_daemon_connection_types.h"
@@ -162,7 +163,7 @@ DLT_STATIC void dlt_connection_destroy_receiver(DltConnection *con)
         /* We rely on the gateway for clean-up */
         break;
     case DLT_CONNECTION_APP_MSG:
-        dlt_receiver_free_unix_socket(con->receiver);
+        dlt_receiver_free_global_buffer(con->receiver);
         free(con->receiver);
         con->receiver = NULL;
         break;
@@ -193,6 +194,8 @@ DLT_STATIC DltReceiver *dlt_connection_get_receiver(DltDaemonLocal *daemon_local
                                                     int fd)
 {
     DltReceiver *ret = NULL;
+    DltReceiverType receiver_type = DLT_RECEIVE_FD;
+    struct stat statbuf;
 
     switch (type) {
     case DLT_CONNECTION_CONTROL_CONNECT:
@@ -205,29 +208,34 @@ DLT_STATIC DltReceiver *dlt_connection_get_receiver(DltDaemonLocal *daemon_local
         ret = calloc(1, sizeof(DltReceiver));
 
         if (ret)
-            dlt_receiver_init(ret, fd, DLT_DAEMON_RCVBUFSIZESOCK);
+            dlt_receiver_init(ret, fd, DLT_RECEIVE_SOCKET, DLT_DAEMON_RCVBUFSIZESOCK);
 
         break;
     case DLT_CONNECTION_CLIENT_MSG_SERIAL:
         ret = calloc(1, sizeof(DltReceiver));
 
         if (ret)
-            dlt_receiver_init(ret, fd, DLT_DAEMON_RCVBUFSIZESERIAL);
+            dlt_receiver_init(ret, fd, DLT_RECEIVE_FD, DLT_DAEMON_RCVBUFSIZESERIAL);
 
         break;
     case DLT_CONNECTION_APP_MSG:
         ret = calloc(1, sizeof(DltReceiver));
 
-        if (ret) {
-            #ifdef DLT_USE_UNIX_SOCKET_IPC
-            dlt_receiver_init_unix_socket(ret, fd, &app_recv_buffer);
-            #else
-            dlt_receiver_init(ret, fd, DLT_RECEIVE_BUFSIZE);
-            #endif
+        receiver_type = DLT_RECEIVE_FD;
+
+        if (fstat(fd, &statbuf) == 0) {
+            if (S_ISSOCK(statbuf.st_mode))
+                receiver_type = DLT_RECEIVE_SOCKET;
+        } else {
+            dlt_vlog(LOG_WARNING,
+                     "Failed to determine receive type for DLT_CONNECTION_APP_MSG, using \"FD\"\n");
         }
 
+        if (ret)
+            dlt_receiver_init_global_buffer(ret, fd, receiver_type, &app_recv_buffer);
+
         break;
-#ifdef DLT_USE_UNIX_SOCKET_IPC
+#if defined DLT_DAEMON_USE_UNIX_SOCKET_IPC || defined DLT_DAEMON_VSOCK_IPC_ENABLE
     case DLT_CONNECTION_APP_CONNECT:
     /* FALL THROUGH */
 #endif
@@ -243,7 +251,7 @@ DLT_STATIC DltReceiver *dlt_connection_get_receiver(DltDaemonLocal *daemon_local
         ret = calloc(1, sizeof(DltReceiver));
 
         if (ret)
-            dlt_receiver_init(ret, fd, DLT_DAEMON_RCVBUFSIZE);
+            dlt_receiver_init(ret, fd, DLT_RECEIVE_FD, DLT_DAEMON_RCVBUFSIZE);
 
         break;
     case DLT_CONNECTION_GATEWAY:
@@ -286,7 +294,7 @@ void *dlt_connection_get_callback(DltConnection *con)
     case DLT_CONNECTION_CLIENT_MSG_SERIAL:
         ret = dlt_daemon_process_client_messages_serial;
         break;
-#ifdef DLT_USE_UNIX_SOCKET_IPC
+#if defined DLT_DAEMON_USE_UNIX_SOCKET_IPC || defined DLT_DAEMON_VSOCK_IPC_ENABLE
     case DLT_CONNECTION_APP_CONNECT:
         ret = dlt_daemon_process_app_connect;
         break;
@@ -388,10 +396,31 @@ int dlt_connection_create(DltDaemonLocal *daemon_local,
     temp->receiver = dlt_connection_get_receiver(daemon_local, type, fd);
 
     if (!temp->receiver) {
-        dlt_vlog(LOG_CRIT, "Unable to get receiver from %d connection.\n",
+        dlt_vlog(LOG_CRIT, "Unable to get receiver from %u connection.\n",
                  type);
         free(temp);
         return -1;
+    }
+
+    struct timeval timeout;
+    timeout.tv_sec = 5;
+    timeout.tv_usec = 0;
+#ifdef DLT_SYSTEMD_WATCHDOG_ENABLE
+    char *watchdogUSec = getenv("WATCHDOG_USEC");
+    if (watchdogUSec) {
+        timeout.tv_sec = atoi(watchdogUSec) / 1000000;
+        timeout.tv_usec = atoi(watchdogUSec) % 1000000;
+    }
+#endif
+
+    if (setsockopt (temp->receiver->fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof timeout) < 0)  {
+        dlt_vlog(LOG_WARNING, "Unable to set send timeout %s.\n", strerror(errno));
+        // as this function is used for non socket connection as well
+        // we only can return an error here if it is a socket
+        if (errno != ENOTSOCK) {
+            free(temp);
+            return -1;
+        }
     }
 
     /* We are single threaded no need for protection. */

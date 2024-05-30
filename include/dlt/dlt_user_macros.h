@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -71,6 +71,8 @@
 #include "dlt_version.h"
 #include "dlt_types.h"
 
+#include <stdbool.h>
+
 /**
  * \defgroup userapi DLT User API
  * \addtogroup userapi
@@ -110,27 +112,27 @@
  */
 #define DLT_REGISTER_APP(APPID, DESCRIPTION) do { \
         (void)dlt_check_library_version(_DLT_PACKAGE_MAJOR_VERSION, _DLT_PACKAGE_MINOR_VERSION); \
-        (void)dlt_register_app(APPID, DESCRIPTION); } while (0)
+        (void)dlt_register_app(APPID, DESCRIPTION); } while(false)
 
 
 /**
  * Unregister application.
  */
 #define DLT_UNREGISTER_APP() do { \
-        (void)dlt_unregister_app(); } while (0)
+        (void)dlt_unregister_app(); } while(false)
 
 /**
  * Unregister application and flush the logs buffered in startup buffer if any.
  */
 #define DLT_UNREGISTER_APP_FLUSH_BUFFERED_LOGS() do { \
-        (void)dlt_unregister_app_flush_buffered_logs(); } while (0)
+        (void)dlt_unregister_app_flush_buffered_logs(); } while(false)
 
 /**
  * To Get application ID.
  * @Param APPID character pointer of minimum 4 bytes
  */
 #define DLT_GET_APPID(APPID) do{\
-    dlt_get_appid(APPID);} while(0)
+    dlt_get_appid(APPID);} while(false)
 
 /**
  * Register context (with default log level and default trace status)
@@ -139,7 +141,7 @@
  * @param DESCRIPTION ASCII string containing description
  */
 #define DLT_REGISTER_CONTEXT(CONTEXT, CONTEXTID, DESCRIPTION) do { \
-        (void)dlt_register_context(&(CONTEXT), CONTEXTID, DESCRIPTION); } while (0)
+        (void)dlt_register_context(&(CONTEXT), CONTEXTID, DESCRIPTION); } while (false)
 
 /**
  * Register context with pre-defined log level and pre-defined trace status.
@@ -152,7 +154,7 @@
  * (DLT_TRACE_STATUS_DEFAULT is not allowed here)
  */
 #define DLT_REGISTER_CONTEXT_LL_TS(CONTEXT, CONTEXTID, DESCRIPTION, LOGLEVEL, TRACESTATUS) do { \
-        (void)dlt_register_context_ll_ts(&(CONTEXT), CONTEXTID, DESCRIPTION, LOGLEVEL, TRACESTATUS); } while (0)
+        (void)dlt_register_context_ll_ts(&(CONTEXT), CONTEXTID, DESCRIPTION, LOGLEVEL, TRACESTATUS); } while (false)
 
 /**
  * Register context (with default log level and default trace status and log level change callback)
@@ -162,14 +164,14 @@
  * @param CBK log level change callback to be registered
  */
 #define DLT_REGISTER_CONTEXT_LLCCB(CONTEXT, CONTEXTID, DESCRIPTION, CBK) do { \
-        (void)dlt_register_context_llccb(&(CONTEXT), CONTEXTID, DESCRIPTION, CBK); } while (0)
+        (void)dlt_register_context_llccb(&(CONTEXT), CONTEXTID, DESCRIPTION, CBK); } while(false)
 
 /**
  * Unregister context.
  * @param CONTEXT object containing information about one special logging context
  */
 #define DLT_UNREGISTER_CONTEXT(CONTEXT) do { \
-        (void)dlt_unregister_context(&(CONTEXT)); } while (0)
+        (void)dlt_unregister_context(&(CONTEXT)); } while(false)
 
 /**
  * Register callback function called when injection message was received
@@ -178,7 +180,7 @@
  * @param CALLBACK function pointer to callback function
  */
 #define DLT_REGISTER_INJECTION_CALLBACK(CONTEXT, SERVICEID, CALLBACK) do { \
-        (void)dlt_register_injection_callback(&(CONTEXT), SERVICEID, CALLBACK); } while (0)
+        (void)dlt_register_injection_callback(&(CONTEXT), SERVICEID, CALLBACK); } while(false)
 
 /**
  * Register callback function called when injection message was received
@@ -188,7 +190,7 @@
  * @param PRIV_DATA data specific to context
  */
 #define DLT_REGISTER_INJECTION_CALLBACK_WITH_ID(CONTEXT, SERVICEID, CALLBACK, PRIV_DATA) do { \
-        (void)dlt_register_injection_callback_with_id(&(CONTEXT), SERVICEID, CALLBACK, PRIV_DATA); } while (0)
+        (void)dlt_register_injection_callback_with_id(&(CONTEXT), SERVICEID, CALLBACK, PRIV_DATA); } while(false)
 
 /**
  * Register callback function called when log level of context was changed
@@ -196,7 +198,7 @@
  * @param CALLBACK function pointer to callback function
  */
 #define DLT_REGISTER_LOG_LEVEL_CHANGED_CALLBACK(CONTEXT, CALLBACK) do { \
-        (void)dlt_register_log_level_changed_callback(&(CONTEXT), CALLBACK); } while (0)
+        (void)dlt_register_log_level_changed_callback(&(CONTEXT), CALLBACK); } while(false)
 
 /**
  * Send log message with variable list of messages (intended for verbose mode)
@@ -221,7 +223,7 @@
             __VA_ARGS__; \
             (void)dlt_user_log_write_finish(&log_local); \
         } \
-    } while (0)
+    } while (false)
 #endif
 
 /**
@@ -250,7 +252,7 @@
             log_local.user_timestamp = (uint32_t) TS; \
             (void)dlt_user_log_write_finish(&log_local); \
         } \
-    } while (0)
+    } while (false)
 #endif
 
 /**
@@ -279,7 +281,7 @@
             __VA_ARGS__; \
             (void)dlt_user_log_write_finish(&log_local); \
         } \
-    } while (0)
+    } while(false)
 #endif
 
 /**
@@ -311,7 +313,7 @@
             log_local.user_timestamp = (uint32_t) TS; \
             (void)dlt_user_log_write_finish(&log_local); \
         } \
-    } while (0)
+    } while(false)
 #endif
 
 /**
@@ -369,11 +371,117 @@
     (void)dlt_user_log_write_sized_utf8_string(&log_local, TEXT, LEN)
 
 /**
+ * Add constant utf8-encoded string parameter to the log messsage.
+ * @param TEXT Constant UTF8-encoded string
+ */
+#define DLT_CUTF8(TEXT) \
+    (void)dlt_user_log_write_constant_utf8_string(&log_local, TEXT)
+
+/**
+ * Add constant utf8-encoded string parameter with given length to the log messsage.
+ * The string in @a TEXT does not need to be null-terminated, but
+ * the copied string will be null-terminated at its destination
+ * in the message buffer.
+ * @param TEXT Constant UTF8-encoded string
+ * @param LEN length in bytes to take from @a TEXT
+ */
+#define DLT_SIZED_CUTF8(TEXT, LEN) \
+    (void)dlt_user_log_write_sized_constant_utf8_string(&log_local, TEXT, LEN)
+
+/**
+ * Add string parameter with "name" attribute to the log messsage.
+ * @param TEXT ASCII string
+ * @param NAME "name" attribute
+ */
+#define DLT_STRING_ATTR(TEXT, NAME) \
+    (void)dlt_user_log_write_string_attr(&log_local, TEXT, NAME)
+
+/**
+ * Add string parameter with given length and "name" attribute to the log messsage.
+ * The string in @a TEXT does not need to be null-terminated, but
+ * the copied string will be null-terminated at its destination
+ * in the message buffer.
+ * @param TEXT ASCII string
+ * @param LEN length in bytes to take from @a TEXT
+ * @param NAME "name" attribute
+ */
+#define DLT_SIZED_STRING_ATTR(TEXT, LEN, NAME) \
+    (void)dlt_user_log_write_sized_string_attr(&log_local, TEXT, LEN, NAME)
+
+/**
+ * Add constant string parameter with "name" attribute to the log messsage.
+ * @param TEXT Constant ASCII string
+ * @param NAME "name" attribute
+ */
+#define DLT_CSTRING_ATTR(TEXT, NAME) \
+    (void)dlt_user_log_write_constant_string_attr(&log_local, TEXT, NAME)
+
+/**
+ * Add constant string parameter with given length and "name" attribute to the log messsage.
+ * The string in @a TEXT does not need to be null-terminated, but
+ * the copied string will be null-terminated at its destination
+ * in the message buffer.
+ * @param TEXT Constant ASCII string
+ * @param LEN length in bytes to take from @a TEXT
+ * @param NAME "name" attribute
+ */
+#define DLT_SIZED_CSTRING_ATTR(TEXT, LEN, NAME) \
+    (void)dlt_user_log_write_sized_constant_string_attr(&log_local, TEXT, LEN, NAME)
+
+/**
+ * Add utf8-encoded string parameter with "name" attribute to the log messsage.
+ * @param TEXT UTF8-encoded string
+ * @param NAME "name" attribute
+ */
+#define DLT_UTF8_ATTR(TEXT, NAME) \
+    (void)dlt_user_log_write_utf8_string_attr(&log_local, TEXT, NAME)
+
+/**
+ * Add utf8-encoded string parameter with given length and "name" attribute to the log messsage.
+ * The string in @a TEXT does not need to be null-terminated, but
+ * the copied string will be null-terminated at its destination
+ * in the message buffer.
+ * @param TEXT UTF8-encoded string
+ * @param LEN length in bytes to take from @a TEXT
+ * @param NAME "name" attribute
+ */
+#define DLT_SIZED_UTF8_ATTR(TEXT, LEN, NAME) \
+    (void)dlt_user_log_write_sized_utf8_string_attr(&log_local, TEXT, LEN, ATTR)
+
+/**
+ * Add constant utf8-encoded string parameter with "name" attribute to the log messsage.
+ * @param TEXT Constant UTF8-encoded string
+ * @param NAME "name" attribute
+ */
+#define DLT_CUTF8_ATTR(TEXT, NAME) \
+    (void)dlt_user_log_write_constant_utf8_string_attr(&log_local, TEXT, NAME)
+
+/**
+ * Add constant utf8-encoded string parameter with given length and "name" attribute to the log messsage.
+ * The string in @a TEXT does not need to be null-terminated, but
+ * the copied string will be null-terminated at its destination
+ * in the message buffer.
+ * @param TEXT Constant UTF8-encoded string
+ * @param LEN length in bytes to take from @a TEXT
+ * @param NAME "name" attribute
+ */
+#define DLT_SIZED_CUTF8_ATTR(TEXT, LEN, NAME) \
+    (void)dlt_user_log_write_sized_constant_utf8_string_attr(&log_local, TEXT, LEN, NAME)
+
+/**
  * Add boolean parameter to the log messsage.
  * @param BOOL_VAR Boolean value (mapped to uint8)
  */
 #define DLT_BOOL(BOOL_VAR) \
     (void)dlt_user_log_write_bool(&log_local, BOOL_VAR)
+
+/**
+ * Add boolean parameter with "name" attribute to the log messsage.
+ * @param BOOL_VAR Boolean value (mapped to uint8)
+ * @param NAME "name" attribute
+ */
+#define DLT_BOOL_ATTR(BOOL_VAR, NAME) \
+    (void)dlt_user_log_write_bool_attr(&log_local, BOOL_VAR, NAME)
 
 /**
  * Add float32 parameter to the log messsage.
@@ -388,6 +496,24 @@
  */
 #define DLT_FLOAT64(FLOAT64_VAR) \
     (void)dlt_user_log_write_float64(&log_local, FLOAT64_VAR)
+
+/**
+ * Add float32 parameter with attributes to the log messsage.
+ * @param FLOAT32_VAR Float32 value (mapped to float)
+ * @param NAME "name" attribute
+ * @param UNIT "unit" attribute
+ */
+#define DLT_FLOAT32_ATTR(FLOAT32_VAR, NAME, UNIT) \
+    (void)dlt_user_log_write_float32_attr(&log_local, FLOAT32_VAR, NAME, UNIT)
+
+/**
+ * Add float64 parameter with attributes to the log messsage.
+ * @param FLOAT64_VAR Float64 value (mapped to double)
+ * @param NAME "name" attribute
+ * @param UNIT "unit" attribute
+ */
+#define DLT_FLOAT64_ATTR(FLOAT64_VAR, NAME, UNIT) \
+    (void)dlt_user_log_write_float64_attr(&log_local, FLOAT64_VAR, NAME, UNIT)
 
 /**
  * Add integer parameter to the log messsage.
@@ -409,6 +535,27 @@
     (void)dlt_user_log_write_int64(&log_local, INT_VAR)
 
 /**
+ * Add integer parameter with attributes to the log messsage.
+ * @param INT_VAR integer value
+ * @param NAME "name" attribute
+ * @param UNIT "unit" attribute
+ */
+#define DLT_INT_ATTR(INT_VAR, NAME, UNIT) \
+    (void)dlt_user_log_write_int_attr(&log_local, INT_VAR, NAME, UNIT)
+
+#define DLT_INT8_ATTR(INT_VAR, NAME, UNIT) \
+    (void)dlt_user_log_write_int8_attr(&log_local, INT_VAR, NAME, UNIT)
+
+#define DLT_INT16_ATTR(INT_VAR, NAME, UNIT) \
+    (void)dlt_user_log_write_int16_attr(&log_local, INT_VAR, NAME, UNIT)
+
+#define DLT_INT32_ATTR(INT_VAR, NAME, UNIT) \
+    (void)dlt_user_log_write_int32_attr(&log_local, INT_VAR, NAME, UNIT)
+
+#define DLT_INT64_ATTR(INT_VAR, NAME, UNIT) \
+    (void)dlt_user_log_write_int64_attr(&log_local, INT_VAR, NAME, UNIT)
+
+/**
  * Add unsigned integer parameter to the log messsage.
  * @param UINT_VAR unsigned integer value
  */
@@ -426,6 +573,27 @@
 
 #define DLT_UINT64(UINT_VAR) \
     (void)dlt_user_log_write_uint64(&log_local, UINT_VAR)
+
+/**
+ * Add unsigned integer parameter with attributes to the log messsage.
+ * @param UINT_VAR unsigned integer value
+ * @param NAME "name" attribute
+ * @param UNIT "unit" attribute
+ */
+#define DLT_UINT_ATTR(UINT_VAR, NAME, UNIT) \
+    (void)dlt_user_log_write_uint_attr(&log_local, UINT_VAR, NAME, UNIT)
+
+#define DLT_UINT8_ATTR(UINT_VAR, NAME, UNIT) \
+    (void)dlt_user_log_write_uint8_attr(&log_local, UINT_VAR, NAME, UNIT)
+
+#define DLT_UINT16_ATTR(UINT_VAR, NAME, UNIT) \
+    (void)dlt_user_log_write_uint16_attr(&log_local, UINT_VAR, NAME, UNIT)
+
+#define DLT_UINT32_ATTR(UINT_VAR, NAME, UNIT) \
+    (void)dlt_user_log_write_uint32_attr(&log_local, UINT_VAR, NAME, UNIT)
+
+#define DLT_UINT64_ATTR(UINT_VAR, NAME, UNIT) \
+    (void)dlt_user_log_write_uint64_attr(&log_local, UINT_VAR, NAME, UNIT)
 
 /**
  * Add binary memory block to the log messages.
@@ -448,6 +616,15 @@
     (void)dlt_user_log_write_uint16_formatted(&log_local, UINT_VAR, DLT_FORMAT_BIN16)
 
 /**
+ * Add binary memory block with "name" attribute to the log messages.
+ * @param BUF pointer to memory block
+ * @param LEN length of memory block
+ * @param NAME "name" attribute
+ */
+#define DLT_RAW_ATTR(BUF, LEN, NAME) \
+    (void)dlt_user_log_write_raw_attr(&log_local, BUF, LEN, NAME)
+
+/**
  * Architecture independent macro to print pointers
  */
 #define DLT_PTR(PTR_VAR) \
@@ -468,7 +645,7 @@
         { \
             (void)dlt_user_trace_network(&(CONTEXT), TYPE, HEADERLEN, HEADER, PAYLOADLEN, PAYLOAD); \
         } \
-    } while (0)
+    } while(false)
 
 /**
  * Trace network message, allow truncation
@@ -485,7 +662,7 @@
         { \
             (void)dlt_user_trace_network_truncated(&(CONTEXT), TYPE, HEADERLEN, HEADER, PAYLOADLEN, PAYLOAD, 1); \
         } \
-    } while (0)
+    } while(false)
 
 /**
  * Trace network message, segment large messages
@@ -502,7 +679,7 @@
         { \
             (void)dlt_user_trace_network_segmented(&(CONTEXT), TYPE, HEADERLEN, HEADER, PAYLOADLEN, PAYLOAD); \
         } \
-    } while (0)
+    } while(false)
 
 /**
  * Send log message with string parameter.
@@ -516,7 +693,7 @@
         { \
             (void)dlt_log_string(&(CONTEXT), LOGLEVEL, TEXT); \
         } \
-    } while (0)
+    } while(false)
 
 /**
  * Send log message with string parameter and integer parameter.
@@ -531,7 +708,7 @@
         { \
             (void)dlt_log_string_int(&(CONTEXT), LOGLEVEL, TEXT, INT_VAR); \
         } \
-    } while (0)
+    } while(false)
 
 /**
  * Send log message with string parameter and unsigned integer parameter.
@@ -546,7 +723,7 @@
         { \
             (void)dlt_log_string_uint(&(CONTEXT), LOGLEVEL, TEXT, UINT_VAR); \
         } \
-    } while (0)
+    } while(false)
 
 /**
  * Send log message with unsigned integer parameter.
@@ -560,7 +737,7 @@
         { \
             (void)dlt_log_uint(&(CONTEXT), LOGLEVEL, UINT_VAR); \
         } \
-    } while (0)
+    } while(false)
 
 /**
  * Send log message with integer parameter.
@@ -574,7 +751,7 @@
         { \
             (void)dlt_log_int(&(CONTEXT), LOGLEVEL, INT_VAR); \
         } \
-    } while (0)
+    } while(false)
 
 /**
  * Send log message with binary memory block.
@@ -589,7 +766,7 @@
         { \
             (void)dlt_log_raw(&(CONTEXT), LOGLEVEL, BUF, LEN); \
         } \
-    } while (0)
+    } while(false)
 
 /**
  * Send log message with marker.
@@ -597,21 +774,21 @@
 #define DLT_LOG_MARKER() \
     do { \
         (void)dlt_log_marker(); \
-    } while (0)
+    } while(false)
 
 /**
  * Switch to verbose mode
  *
  */
 #define DLT_VERBOSE_MODE() do { \
-        (void)dlt_verbose_mode(); } while (0)
+        (void)dlt_verbose_mode(); } while(false)
 
 /**
  * Switch to non-verbose mode
  *
  */
 #define DLT_NONVERBOSE_MODE() do { \
-        (void)dlt_nonverbose_mode(); } while (0)
+        (void)dlt_nonverbose_mode(); } while(false)
 
 /**
  * Set maximum logged log level and trace status of application
@@ -620,21 +797,21 @@
  * @param TRACESTATUS This is the trace status to be set for the whole application
  */
 #define DLT_SET_APPLICATION_LL_TS_LIMIT(LOGLEVEL, TRACESTATUS) do { \
-        (void)dlt_set_application_ll_ts_limit(LOGLEVEL, TRACESTATUS); } while (0)
+        (void)dlt_set_application_ll_ts_limit(LOGLEVEL, TRACESTATUS); } while(false)
 
 /**
  * Enable local printing of messages
  *
  */
 #define DLT_ENABLE_LOCAL_PRINT() do { \
-        (void)dlt_enable_local_print(); } while (0)
+        (void)dlt_enable_local_print(); } while(false)
 
 /**
  * Disable local printing of messages
  *
  */
 #define DLT_DISABLE_LOCAL_PRINT() do { \
-        (void)dlt_disable_local_print(); } while (0)
+        (void)dlt_disable_local_print(); } while(false)
 
 /**
  * Check if log level is enabled

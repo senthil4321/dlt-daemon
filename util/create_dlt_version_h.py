@@ -4,14 +4,14 @@
 # Advanced Driver Information Technology Corporation, Robert Bosch GmbH,
 # Robert Bosch Car Multimedia GmbH and DENSO Corporation.
 #
-# This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+# This file is part of COVESA Project DLT - Diagnostic Log and Trace.
 #
 # This Source Code Form is subject to the terms of the
 # Mozilla Public License (MPL), v. 2.0.
 # If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# For further information see http://www.genivi.org/.
+# For further information see http://www.covesa.org/.
 import pathlib
 import subprocess
 import argparse
@@ -20,19 +20,13 @@ import re
 
 def get_cmd(cmd, cwd):
     return subprocess.check_output(cmd, cwd=cwd, shell=True,
-                                   stderr=subprocess.STDOUT
+                                   stderr=subprocess.DEVNULL,
                                    ).decode().strip()
 
 
 def get_revision(git_dir):
     try:
-        rev = get_cmd('git describe --tags', git_dir)
-        if not rev.startswith("fatal:"):
-            return rev
-
-        rev = get_cmd('git rev-parse HEAD', git_dir)
-        if not rev.startswith("fatal:"):
-            return rev
+        return get_cmd('git describe --tags --always --dirty', git_dir)
     except subprocess.CalledProcessError:
         pass
 

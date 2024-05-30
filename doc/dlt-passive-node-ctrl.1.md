@@ -34,6 +34,14 @@ Send a trigger to DLT daemon to (dis)connect a passive node or get current passi
 
 :   Specify connection timeout (Default: 10s)
 
+-S
+
+:   Send message with serial header (Default: Without serial header)
+
+-R
+
+:   Enable resync serial header
+
 -v
 
 :   Set verbose flag (Default:0)
@@ -63,7 +71,7 @@ Copyright (C) 2015 Advanced Driver Information Technology, Bosch and DENSO. Lice
 
 # BUGS
 
-See Github issue: <https://github.com/GENIVI/dlt-daemon/issues>
+See Github issue: <https://github.com/COVESA/dlt-daemon/issues>
 
 # SEE ALSO
 

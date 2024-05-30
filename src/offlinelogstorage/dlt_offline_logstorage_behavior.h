@@ -14,7 +14,7 @@
  * \author Christoph Lipka <clipka@jp.adit-jv.com> ADIT 2015
  *
  * \file: dlt_offline_logstorage_behavior.h
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*******************************************************************************
@@ -55,7 +55,7 @@ int dlt_logstorage_prepare_on_msg(DltLogStorageFilterConfig *config,
                                   DltLogStorageUserConfig *file_config,
                                   char *dev_path,
                                   int log_msg_size,
-                                  char *newest_file);
+                                  DltNewestFileName *newest_file_info);
 int dlt_logstorage_write_on_msg(DltLogStorageFilterConfig *config,
                                 DltLogStorageUserConfig *file_config,
                                 char *dev_path,
@@ -78,7 +78,7 @@ int dlt_logstorage_prepare_msg_cache(DltLogStorageFilterConfig *config,
                                      DltLogStorageUserConfig *file_config,
                                      char *dev_path,
                                      int log_msg_size,
-                                     char *newest_file);
+                                     DltNewestFileName *newest_file_info);
 
 int dlt_logstorage_write_msg_cache(DltLogStorageFilterConfig *config,
                                    DltLogStorageUserConfig *file_config,

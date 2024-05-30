@@ -3,14 +3,14 @@
 #
 # Copyright (C) 2011-2015, BMW AG
 #
-# This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+# This file is part of COVESA Project DLT - Diagnostic Log and Trace.
 #
 # This Source Code Form is subject to the terms of the
 # Mozilla Public License (MPL), v. 2.0.
 # If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# For further information see http://www.genivi.org/.
+# For further information see http://www.covesa.org/.
 #######
 
 if(WITH_SYSTEMD)
@@ -53,7 +53,7 @@ if(WITH_SYSTEMD)
         install(FILES ${PROJECT_BINARY_DIR}/systemd/dlt-example-user.service DESTINATION ${SYSTEMD_CONFIGURATIONS_FILES_DIR} )
     endif(WITH_DLT_EXAMPLES)
 
-    if(WITH_DLT_ADAPTOR)
+    if(WITH_DLT_ADAPTOR_UDP OR WITH_DLT_ADAPTOR)
         set( DLT_ADAPTOR_UDP_APPID "DUDP" )
         set( DLT_ADAPTOR_UDP_CTID "DCTI" )
         set( DLT_ADAPTOR_UDP_PORT 4712 )
@@ -61,7 +61,13 @@ if(WITH_SYSTEMD)
         message( STATUS "Configured systemd unit file:dlt-adaptor-udp.service" )
         message(STATUS "DLT adaptor udp configuration: APPID=${DLT_ADAPTOR_UDP_APPID} CTID=${DLT_ADAPTOR_UDP_CTID} PORT=${DLT_ADAPTOR_UDP_PORT}" )
         install(FILES ${PROJECT_BINARY_DIR}/systemd/dlt-adaptor-udp.service DESTINATION ${SYSTEMD_CONFIGURATIONS_FILES_DIR} )
-    endif(WITH_DLT_ADAPTOR)
+    endif(WITH_DLT_ADAPTOR_UDP OR WITH_DLT_ADAPTOR)
+
+    if (WITH_SYSTEMD_SOCKET_ACTIVATION)
+        configure_file(${PROJECT_SOURCE_DIR}/systemd/dlt.socket.cmake ${PROJECT_BINARY_DIR}/systemd/dlt.socket)
+        message( STATUS "Configured systemd socket file:dlt.socket" )
+        install(FILES ${PROJECT_BINARY_DIR}/systemd/dlt.socket DESTINATION ${SYSTEMD_CONFIGURATIONS_FILES_DIR} )
+    endif(WITH_SYSTEMD_SOCKET_ACTIVATION)
 
     message(STATUS "Unit files will be installed to ${SYSTEMD_CONFIGURATIONS_FILES_DIR} after make install" )
 

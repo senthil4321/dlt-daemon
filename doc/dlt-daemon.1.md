@@ -6,14 +6,14 @@
 
 # SYNOPSIS
 
-**dlt-daemon** \[**-h**\] \[**-d**\] \[**-c** filename\] \[**-t** directory\] \[**-p** port\]
+**dlt-daemon** \[**-h**\] \[**-d**\] \[**-c** filename\] \[**-t** directory\] \[**-p** port\] \[**-a** filename\]
 
 # DESCRIPTION
 
 The DLT daemon is the central place where logs and traces are gathered
 from different applications, stored temporarily or permanently and
 transferred to a DLT client application, which can run directly on the
-GENIVI system or more likely on a external tester device.
+COVESA system or more likely on a external tester device.
 
 ## OPTIONS
 
@@ -40,6 +40,12 @@ GENIVI system or more likely on a external tester device.
     Applications wanting to connect to a daemon using a custom
     port need to be started with the environment variable
     DLT_DAEMON_TCP_PORT set appropriately.
+
+-a
+
+:   Load an alternative configuration for app id log level defaults.
+    By default, the configuration file /etc/dlt-log-levels.conf is loaded.
+
 
 # EXAMPLES
 
@@ -69,7 +75,7 @@ Copyright (C) 2016 BMW AG. License MPL-2.0: Mozilla Public License version 2.0 <
 
 # BUGS
 
-See Github issue: <https://github.com/GENIVI/dlt-daemon/issues>
+See Github issue: <https://github.com/COVESA/dlt-daemon/issues>
 
 # SEE ALSO
 

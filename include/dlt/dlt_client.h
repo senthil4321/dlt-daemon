@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -75,6 +75,7 @@
 
 #   include "dlt_types.h"
 #   include "dlt_common.h"
+#include <stdbool.h>
 
 typedef enum
 {
@@ -94,9 +95,11 @@ typedef struct
     int port;              /**< Port for TCP connections (optional) */
     char *serialDevice;    /**< serialDevice Devicename of serial device */
     char *socketPath;      /**< socketPath Unix socket path */
-    char ecuid[4];           /**< ECUiD */
+    char ecuid[4];         /**< ECUiD */
     speed_t baudrate;      /**< baudrate Baudrate of serial interface, as speed_t */
     DltClientMode mode;    /**< mode DltClientMode */
+    int send_serial_header;    /**< (Boolean) Send DLT messages with serial header */
+    int resync_serial_header;  /**< (Boolean) Resync to serial header on all connection */
 } DltClient;
 
 #   ifdef __cplusplus
@@ -104,6 +107,7 @@ extern "C" {
 #   endif
 
 void dlt_client_register_message_callback(int (*registerd_callback)(DltMessage *message, void *data));
+void dlt_client_register_fetch_next_message_callback(bool (*registerd_callback)(void *data));
 
 /**
  * Initialising dlt client structure with a specific port
@@ -143,6 +147,15 @@ DltReturnValue dlt_client_cleanup(DltClient *client, int verbose);
  * @return Value from DltReturnValue enum
  */
 DltReturnValue dlt_client_main_loop(DltClient *client, void *data, int verbose);
+
+/**
+ * Send a message to the daemon through the socket.
+ * @param client pointer to dlt client structure.
+ * @param msg The message to be send in DLT format.
+ * @return Value from DltReturnValue enum.
+ */
+DltReturnValue dlt_client_send_message_to_socket(DltClient *client, DltMessage *msg);
+
 /**
  * Send ancontrol message to the dlt daemon
  * @param client pointer to dlt client structure

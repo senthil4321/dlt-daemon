@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -45,6 +45,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <signal.h>
 #include <errno.h>
@@ -324,6 +325,7 @@ time_t mksleep_time(int delay, int fudge)
 void do_logging(s_thread_data *data)
 {
     DltContext mycontext;
+    DltContextData mycontextdata;
     char ctid[5];
     char ctid_name[256];
     struct timespec ts;
@@ -339,14 +341,14 @@ void do_logging(s_thread_data *data)
 
     snprintf(ctid_name, 256, "Child %s in dlt-test-multi-process", ctid);
 
-    DLT_REGISTER_CONTEXT(mycontext, ctid, ctid_name);
+    dlt_register_context(&mycontext, ctid, ctid_name);
 
     int msgs_left = data->params.nmsgs;
 
-    logmsg = calloc(1, data->params.nloglength + 1);
+    logmsg = calloc(1, (size_t) (data->params.nloglength + 1));
     if (logmsg == NULL) {
         printf("Error allocate memory for message.\n");
-        DLT_UNREGISTER_CONTEXT(mycontext);
+        dlt_unregister_context(&mycontext);
         abort();
     }
 
@@ -356,11 +358,14 @@ void do_logging(s_thread_data *data)
         {
             n = 'A' + (n - 91) % 26;
         }
-        logmsg[i] = n;
+        logmsg[i] = (char) n;
     }
 
     while (msgs_left-- > 0) {
-        DLT_LOG(mycontext, DLT_LOG_INFO, DLT_STRING(logmsg));
+        if (dlt_user_log_write_start(&mycontext, &mycontextdata, DLT_LOG_INFO) > 0) {
+            dlt_user_log_write_string(&mycontextdata, logmsg);
+            dlt_user_log_write_finish(&mycontextdata);
+        }
 
         sleep_time = mksleep_time(data->params.delay, data->params.delay_fudge);
         ts.tv_sec = sleep_time / 1000000000;
@@ -373,7 +378,7 @@ void do_logging(s_thread_data *data)
         logmsg = NULL;
     }
 
-    DLT_UNREGISTER_CONTEXT(mycontext);
+    dlt_unregister_context(&mycontext);
 }
 
 /**
@@ -387,21 +392,21 @@ void run_threads(s_parameters params)
     char apid_name[256];
     int i;
 
-    srand(getpid());
+    srand((unsigned int) getpid());
 
     snprintf(apid, 5, "MT%02u", pidcount);
     snprintf(apid_name, 256, "Apps %s.", apid);
 
-    DLT_REGISTER_APP(apid, apid_name);
+    dlt_register_app(apid, apid_name);
 
-    thread_data = calloc(params.nthreads, sizeof(s_thread_data));
+    thread_data = calloc( (size_t) params.nthreads, sizeof(s_thread_data));
     if (thread_data == NULL) {
         printf("Error allocate memory for thread data.\n");
         abort();
     }
 
     for (i = 0; i < params.nthreads; i++) {
-        thread_data[i].tidcount = i;
+        thread_data[i].tidcount = (unsigned int) i;
         thread_data[i].params = params;
         thread_data[i].pidcount = pidcount;
 
@@ -411,13 +416,16 @@ void run_threads(s_parameters params)
         }
     }
 
-    for (i = 0; i < params.nthreads; i++)
-        pthread_join(thread[i], NULL);
+    for (i = 0; i < params.nthreads; i++) {
+        int ret = pthread_join(thread[i], NULL);
+        if (ret != 0)
+            printf("Error join thread: %s \n", strerror(errno));
+    }
 
     if(thread_data)
         free(thread_data);
 
-    DLT_UNREGISTER_APP();
+    dlt_unregister_app();
     /* We can exit now */
     exit(0);
 }
@@ -427,7 +435,7 @@ void run_threads(s_parameters params)
  */
 int wait_for_death()
 {
-    int pids_left = pidcount;
+    int pids_left = (int) pidcount;
 
     while (pids_left > 0) {
         int status;

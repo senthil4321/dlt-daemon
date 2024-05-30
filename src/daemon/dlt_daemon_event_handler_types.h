@@ -5,14 +5,14 @@
  * This code is developed by Advanced Driver Information Technology.
  * Copyright of Advanced Driver Information Technology, Bosch and DENSO.
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -30,7 +30,7 @@
 #include "dlt_daemon_connection_types.h"
 
 #ifndef DLT_DAEMON_EVENT_HANDLER_TYPES_H
-#   define DLT_DAEMON_EVENT_HANDLER_TYPES_H
+#define DLT_DAEMON_EVENT_HANDLER_TYPES_H
 
 /* FIXME: Remove the need for DltDaemonLocal everywhere in the code
  * These typedefs are needed by DltDaemonLocal which is
@@ -41,9 +41,9 @@
 typedef enum {
     DLT_TIMER_PACKET = 0,
     DLT_TIMER_ECU,
-#   ifdef DLT_SYSTEMD_WATCHDOG_ENABLE
+#ifdef DLT_SYSTEMD_WATCHDOG_ENABLE
     DLT_TIMER_SYSTEMD,
-#   endif
+#endif
     DLT_TIMER_GATEWAY,
     DLT_TIMER_UNKNOWN
 } DltTimers;

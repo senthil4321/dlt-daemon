@@ -3,14 +3,14 @@
 #
 # Copyright (C) 2011-2015, BMW AG
 #
-# This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+# This file is part of COVESA Project DLT - Diagnostic Log and Trace.
 #
 # This Source Code Form is subject to the terms of the
 # Mozilla Public License (MPL), v. 2.0.
 # If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# For further information see http://www.genivi.org/.
+# For further information see http://www.covesa.org/.
 #######
 
 
@@ -32,6 +32,7 @@ set(dlt_daemon_SRCS
     ${PROJECT_SOURCE_DIR}/src/lib/dlt_client.c
     ${PROJECT_SOURCE_DIR}/src/shared/dlt_common.c
     ${PROJECT_SOURCE_DIR}/src/shared/dlt_config_file_parser.c
+    ${PROJECT_SOURCE_DIR}/src/shared/dlt_multiple_files.c
     ${PROJECT_SOURCE_DIR}/src/shared/dlt_offline_trace.c
     ${PROJECT_SOURCE_DIR}/src/shared/dlt_protocol.c
     ${PROJECT_SOURCE_DIR}/src/shared/dlt_user_shared.c
@@ -45,7 +46,7 @@ if(WITH_DLT_SHM_ENABLE)
         ${PROJECT_SOURCE_DIR}/src/shared/dlt_shm.c)
 endif()
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+if("${CMAKE_SYSTEM_NAME}" MATCHES "Linux|CYGWIN|MSYS")
     set(RT_LIBRARY rt)
     set(SOCKET_LIBRARY "")
 else()
@@ -61,6 +62,12 @@ endif(WITH_UDP_CONNECTION)
 
 add_executable(dlt-daemon ${dlt_daemon_SRCS} ${systemd_SRCS})
 target_link_libraries(dlt-daemon ${RT_LIBRARY} ${SOCKET_LIBRARY} ${CMAKE_THREAD_LIBS_INIT})
+if (WITH_SYSTEMD_SOCKET_ACTIVATION)
+    target_link_libraries(dlt-daemon systemd)
+endif()
+if (WITH_DLT_LOGSTORAGE_GZIP)
+	target_link_libraries(dlt-daemon ${ZLIB_LIBRARY})
+endif()
 
 install(TARGETS dlt-daemon
         RUNTIME DESTINATION bin
@@ -91,3 +98,8 @@ INSTALL(FILES dlt.conf
 	DESTINATION ${CONFIGURATION_FILES_DIR}
 	COMPONENT base)
 
+if (WITH_DLT_LOG_LEVEL_APP_CONFIG)
+    INSTALL(FILES dlt-log-levels.conf
+            DESTINATION ${CONFIGURATION_FILES_DIR}
+            COMPONENT base)
+endif()

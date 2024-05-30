@@ -14,7 +14,7 @@
  * \author Aditya Paluri <venkataaditya.paluri@in.bosch.com> ADIT 2018
  *
  * \file: dlt_offline_logstorage_behavior_internal.h
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*******************************************************************************
@@ -51,14 +51,17 @@
 
 void dlt_logstorage_log_file_name(char *log_file_name,
                                   DltLogStorageUserConfig *file_config,
-                                  char *name,
-                                  int idx);
+                                  const DltLogStorageFilterConfig *filter_config,
+                                  const char *name,
+                                  const int num_files,
+                                  const int idx);
 
-void dlt_logstorage_sort_file_name(DltLogStorageFileList **head);
+unsigned int dlt_logstorage_sort_file_name(DltLogStorageFileList **head);
 
 void dlt_logstorage_rearrange_file_name(DltLogStorageFileList **head);
 
 unsigned int dlt_logstorage_get_idx_of_log_file(DltLogStorageUserConfig *file_config,
+                                                DltLogStorageFilterConfig *config,
                                                 char *file);
 
 int dlt_logstorage_storage_dir_info(DltLogStorageUserConfig *file_config,
@@ -69,7 +72,8 @@ int dlt_logstorage_open_log_file(DltLogStorageFilterConfig *config,
                                  DltLogStorageUserConfig *file_config,
                                  char *dev_path,
                                  int msg_size,
-                                 bool is_update_required);
+                                 bool is_update_required,
+                                 bool is_sync);
 
 DLT_STATIC int dlt_logstorage_sync_to_file(DltLogStorageFilterConfig *config,
                                            DltLogStorageUserConfig *file_config,

@@ -14,7 +14,7 @@
  * \author Aditya Paluri <venkataaditya.paluri@in.bosch.com> ADIT 2017
  *
  * \file: dlt_offline_logstorage_internal.h
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*******************************************************************************
@@ -68,13 +68,21 @@ DLT_STATIC int dlt_logstorage_count_ids(const char *str);
 
 DLT_STATIC int dlt_logstorage_read_number(unsigned int *number, char *value);
 
-DLT_STATIC int dlt_logstorage_read_list_of_names(char **names, char *value);
+DLT_STATIC int dlt_logstorage_read_list_of_names(char **names, const char *value);
 
 DLT_STATIC int dlt_logstorage_check_apids(DltLogStorageFilterConfig *config, char *value);
 
 DLT_STATIC int dlt_logstorage_check_ctids(DltLogStorageFilterConfig *config, char *value);
 
+DLT_STATIC int dlt_logstorage_store_config_excluded_apids(DltLogStorageFilterConfig *config, char *value);
+
+DLT_STATIC int dlt_logstorage_store_config_excluded_ctids(DltLogStorageFilterConfig *config, char *value);
+
+DLT_STATIC bool dlt_logstorage_check_excluded_ids(char *id, char *delim, char *excluded_ids);
+
 DLT_STATIC int dlt_logstorage_check_loglevel(DltLogStorageFilterConfig *config, char *value);
+
+DLT_STATIC int dlt_logstorage_check_gzip_compression(DltLogStorageFilterConfig *config, char *value);
 
 DLT_STATIC int dlt_logstorage_check_filename(DltLogStorageFilterConfig *config, char *value);
 

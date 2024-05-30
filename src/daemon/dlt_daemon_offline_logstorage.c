@@ -15,7 +15,7 @@
  * \author Christoph Lipka <clipka@jp.adit-jv.com> ADIT 2015
  *
  * \file: dlt_daemon_offline_logstorage.c
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 #include <stdio.h>
@@ -233,9 +233,14 @@ DLT_STATIC DltReturnValue dlt_logstorage_split_multi(char *key,
     else {
         strncpy(ecuid, tok, DLT_ID_SIZE);
         tok = strtok(NULL, ":");
-        strncpy(apid, tok, DLT_ID_SIZE);
+
+        if (tok != NULL)
+            strncpy(apid, tok, DLT_ID_SIZE);
+
         tok = strtok(NULL, ":");
-        strncpy(ctid, tok, DLT_ID_SIZE);
+
+        if (tok != NULL)
+            strncpy(ctid, tok, DLT_ID_SIZE);
     }
 
     return DLT_RETURN_OK;
@@ -534,7 +539,7 @@ DLT_STATIC DltReturnValue dlt_daemon_logstorage_force_reset_level(DltDaemon *dae
  * @param daemon_local      DltDaemonLocal structure
  * @param id                application id or context id
  * @param curr_log_level    log level to be set to context
- * @param cmp_flag          compare flag (1 id is apid, 2 id is ctid)
+ * @param cmp_flag          compare flag
  * @param ecuid             ecu id where application runs
  * @param verbose           If set to true verbose information is printed out
  * @return                  0 on success, -1 on error
@@ -552,8 +557,8 @@ DltReturnValue dlt_logstorage_update_all_contexts(DltDaemon *daemon,
     char tmp_id[DLT_ID_SIZE + 1] = { '\0' };
 
     if ((daemon == NULL) || (daemon_local == NULL) || (id == NULL) ||
-        (ecuid == NULL) || (cmp_flag < DLT_DAEMON_LOGSTORAGE_CMP_APID) ||
-        (cmp_flag > DLT_DAEMON_LOGSTORAGE_CMP_CTID)) {
+        (ecuid == NULL) || (cmp_flag <= DLT_DAEMON_LOGSTORAGE_CMP_MIN) ||
+        (cmp_flag >= DLT_DAEMON_LOGSTORAGE_CMP_MAX)) {
         dlt_vlog(LOG_ERR, "Wrong parameter in function %s\n", __func__);
         return DLT_RETURN_WRONG_PARAMETER;
     }
@@ -564,10 +569,13 @@ DltReturnValue dlt_logstorage_update_all_contexts(DltDaemon *daemon,
         return DLT_RETURN_ERROR;
 
     for (i = 0; i < user_list->num_contexts; i++) {
-        if (cmp_flag == 1)
+        if (cmp_flag == DLT_DAEMON_LOGSTORAGE_CMP_APID)
             dlt_set_id(tmp_id, user_list->contexts[i].apid);
-        else
+        else if (cmp_flag == DLT_DAEMON_LOGSTORAGE_CMP_CTID)
             dlt_set_id(tmp_id, user_list->contexts[i].ctid);
+        else
+            /* this is for the case when both apid and ctid are wildcard */
+            dlt_set_id(tmp_id, ".*");
 
         if (strncmp(id, tmp_id, DLT_ID_SIZE) == 0) {
             if (curr_log_level > 0)
@@ -705,8 +713,20 @@ DltReturnValue dlt_logstorage_update_context_loglevel(DltDaemon *daemon,
     if (ecuid[0] == '\0') /* ECU id was not specified in filter configuration */
         dlt_set_id(ecuid, daemon->ecuid);
 
-    /* wildcard for context id, find all contexts of given application id */
-    if (strcmp(ctid, ".*") == 0) {
+    /* check wildcard for both apid and ctid first of all */
+    if (strcmp(ctid, ".*") == 0 && strcmp(apid, ".*") == 0) {
+        cmp_flag = DLT_DAEMON_LOGSTORAGE_CMP_ECID;
+
+        if (dlt_logstorage_update_all_contexts(daemon,
+                                               daemon_local,
+                                               apid,
+                                               curr_log_level,
+                                               cmp_flag,
+                                               ecuid,
+                                               verbose) != 0)
+            return DLT_RETURN_ERROR;
+    }
+    else if (strcmp(ctid, ".*") == 0) {
         cmp_flag = DLT_DAEMON_LOGSTORAGE_CMP_APID;
 
         if (dlt_logstorage_update_all_contexts(daemon,
@@ -773,7 +793,6 @@ void dlt_daemon_logstorage_reset_application_loglevel(DltDaemon *daemon,
     DltLogStorageFilterList **tmp = NULL;
     int i = 0;
     char key[DLT_OFFLINE_LOGSTORAGE_MAX_KEY_LEN + 1] = { '\0' };
-    int num_device_configured = 0;
     unsigned int status;
     int log_level = 0;
 
@@ -793,14 +812,6 @@ void dlt_daemon_logstorage_reset_application_loglevel(DltDaemon *daemon,
         (handle->config_status != DLT_OFFLINE_LOGSTORAGE_CONFIG_DONE))
         return;
 
-    /* First, check number of devices configured */
-    for (i = 0; i < max_device; i++) {
-        status = daemon->storage_handle[i].config_status;
-
-        if (status == DLT_OFFLINE_LOGSTORAGE_CONFIG_DONE)
-            num_device_configured++;
-    }
-
     /* for all filters (keys) check if application context are already running
      * and log level need to be reset*/
     tmp = &(handle->config_list);
@@ -814,19 +825,10 @@ void dlt_daemon_logstorage_reset_application_loglevel(DltDaemon *daemon,
                           + (i * DLT_OFFLINE_LOGSTORAGE_MAX_KEY_LEN)),
                     DLT_OFFLINE_LOGSTORAGE_MAX_KEY_LEN);
 
-            if (num_device_configured == 1)
-            {
-                /* Reset context log level and send to application */
-                log_level = DLT_DAEMON_LOGSTORAGE_RESET_SEND_LOGLEVEL;
-            }
-            else
-            {
-                /**
-                 * Reset context log level do not send to application as other
-                 * devices can have same configuration
-                 * */
-                log_level = DLT_DAEMON_LOGSTORAGE_RESET_LOGLEVEL;
-            }
+            /* dlt-daemon wants to reset loglevel if
+             * a logstorage device is disconnected.
+             */
+            log_level = DLT_DAEMON_LOGSTORAGE_RESET_LOGLEVEL;
 
             dlt_logstorage_update_context_loglevel(
                     daemon,
@@ -1007,8 +1009,9 @@ int dlt_daemon_logstorage_get_loglevel(DltDaemon *daemon,
  * @param size2         message extended header size
  * @param data3         message data buffer
  * @param size3         message data size
+ * @return              0 on success, -1 on error, 1 on disable network routing
  */
-void dlt_daemon_logstorage_write(DltDaemon *daemon,
+int dlt_daemon_logstorage_write(DltDaemon *daemon,
                                  DltDaemonFlags *user_config,
                                  unsigned char *data1,
                                  int size1,
@@ -1018,6 +1021,7 @@ void dlt_daemon_logstorage_write(DltDaemon *daemon,
                                  int size3)
 {
     int i = 0;
+    int ret = 0;
     DltLogStorageUserConfig file_config;
 
     if ((daemon == NULL) || (user_config == NULL) ||
@@ -1026,7 +1030,7 @@ void dlt_daemon_logstorage_write(DltDaemon *daemon,
         dlt_vlog(LOG_DEBUG,
                  "%s: message type is not LOG. Skip storing.\n",
                  __func__);
-        return;
+        return -1;
         /* Log Level changed callback */
     }
 
@@ -1034,30 +1038,45 @@ void dlt_daemon_logstorage_write(DltDaemon *daemon,
     file_config.logfile_timestamp = user_config->offlineLogstorageTimestamp;
     file_config.logfile_delimiter = user_config->offlineLogstorageDelimiter;
     file_config.logfile_maxcounter = user_config->offlineLogstorageMaxCounter;
+    file_config.logfile_optional_counter = user_config->offlineLogstorageOptionalCounter;
     file_config.logfile_counteridxlen =
         user_config->offlineLogstorageMaxCounterIdx;
 
-    for (i = 0; i < user_config->offlineLogstorageMaxDevices; i++)
+    for (i = 0; i < user_config->offlineLogstorageMaxDevices; i++) {
         if (daemon->storage_handle[i].config_status ==
             DLT_OFFLINE_LOGSTORAGE_CONFIG_DONE) {
-            if (dlt_logstorage_write(&(daemon->storage_handle[i]),
+            int disable_nw = 0;
+            if ((ret = dlt_logstorage_write(&(daemon->storage_handle[i]),
                                      &file_config,
                                      data1,
                                      size1,
                                      data2,
                                      size2,
                                      data3,
-                                     size3) != 0) {
+                                     size3,
+                                     &disable_nw)) < 0) {
                 dlt_log(LOG_ERR,
                         "dlt_daemon_logstorage_write: failed. "
                         "Disable storage device\n");
-                /* DLT_OFFLINE_LOGSTORAGE_MAX_WRITE_ERRORS happened,
+                /* DLT_OFFLINE_LOGSTORAGE_MAX_ERRORS happened,
                  * therefore remove logstorage device */
                 dlt_logstorage_device_disconnected(
                     &(daemon->storage_handle[i]),
                     DLT_LOGSTORAGE_SYNC_ON_DEVICE_DISCONNECT);
             }
+            if (i == 0) {
+                if (disable_nw == 1) {
+                    ret = 1;
+                }
+            } else {
+                dlt_vlog(LOG_WARNING,
+                         "%s: DisableNetwork is not supported for more than one device yet\n",
+                         __func__);
+            }
         }
+    }
+
+    return ret;
 }
 
 /**
@@ -1098,6 +1117,16 @@ int dlt_daemon_logstorage_setup_internal_storage(DltDaemon *daemon,
                                                       0,
                                                       verbose);
 
+    if (daemon->storage_handle[0].maintain_logstorage_loglevel !=
+            DLT_MAINTAIN_LOGSTORAGE_LOGLEVEL_UNDEF) {
+        daemon->maintain_logstorage_loglevel =
+                daemon->storage_handle[0].maintain_logstorage_loglevel;
+
+        dlt_vlog(LOG_DEBUG, "[%s] Startup with maintain loglevel: [%d]\n",
+                        __func__,
+                        daemon->storage_handle[0].maintain_logstorage_loglevel);
+    }
+
     return ret;
 }
 
@@ -1131,6 +1160,8 @@ int dlt_daemon_logstorage_cleanup(DltDaemon *daemon,
                                         daemon_local->flags.offlineLogstorageMaxCounter;
             (&daemon->storage_handle[i])->uconfig.logfile_timestamp =
                                         daemon_local->flags.offlineLogstorageTimestamp;
+            (&daemon->storage_handle[i])->uconfig.logfile_optional_counter =
+                                        daemon_local->flags.offlineLogstorageOptionalCounter;
 
             dlt_logstorage_device_disconnected(
                 &daemon->storage_handle[i],
@@ -1171,6 +1202,8 @@ int dlt_daemon_logstorage_sync_cache(DltDaemon *daemon,
                 daemon_local->flags.offlineLogstorageMaxCounter;
             handle->uconfig.logfile_timestamp =
                 daemon_local->flags.offlineLogstorageTimestamp;
+            handle->uconfig.logfile_optional_counter =
+                daemon_local->flags.offlineLogstorageOptionalCounter;
 
             if (dlt_logstorage_sync_caches(handle) != 0)
                 return DLT_RETURN_ERROR;
@@ -1189,6 +1222,8 @@ int dlt_daemon_logstorage_sync_cache(DltDaemon *daemon,
                     daemon_local->flags.offlineLogstorageMaxCounter;
                 daemon->storage_handle[i].uconfig.logfile_timestamp =
                     daemon_local->flags.offlineLogstorageTimestamp;
+                daemon->storage_handle[i].uconfig.logfile_optional_counter =
+                    daemon_local->flags.offlineLogstorageOptionalCounter;
 
                 if (dlt_logstorage_sync_caches(&daemon->storage_handle[i]) != 0)
                     return DLT_RETURN_ERROR;

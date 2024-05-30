@@ -3,7 +3,7 @@
  * This code is developed by Advanced Driver Information Technology.
  * Copyright of Advanced Driver Information Technology, Bosch and DENSO.
  *
- * This file is part of GENIVI Project Dlt - Diagnostic Log and Trace console apps.
+ * This file is part of COVESA Project Dlt - Diagnostic Log and Trace console apps.
  *
  *
  * \copyright
@@ -15,7 +15,7 @@
  * \author Christoph Lipka <clipka@jp.adit-jv.com> ADIT 2015
  *
  * \file dlt-passive-node-ctrl.c
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*******************************************************************************
@@ -197,11 +197,6 @@ static int dlt_passive_node_analyze_response(char *answer,
                 DltServicePassiveNodeConnectionInfo *info =
                     (DltServicePassiveNodeConnectionInfo *)(payload);
 
-                if (info == NULL) {
-                    fprintf(stderr, "Received response is NULL\n");
-                    return -1;
-                }
-
                 dlt_print_passive_node_status(info);
             }
         }
@@ -318,6 +313,8 @@ static void usage()
     printf("  -s         Show passive node(s) connection status\n");
     printf("  -t         Specify connection timeout (Default: %ds)\n",
            DLT_CTRL_TIMEOUT);
+    printf("  -S         Send message with serial header (Default: Without serial header)\n");
+    printf("  -R         Enable resync serial header\n");
     printf("  -v         Set verbose flag (Default:%d)\n", get_verbosity());
 }
 
@@ -338,13 +335,13 @@ static int parse_args(int argc, char *argv[])
     /* Get command line arguments */
     opterr = 0;
 
-    while ((c = getopt(argc, argv, "c:hn:stv")) != -1)
+    while ((c = getopt(argc, argv, "c:hn:st:SRv")) != -1)
         switch (c) {
         case 'c':
             state = (int)strtol(optarg, NULL, 10);
 
             if ((state == DLT_NODE_CONNECT) || (state == DLT_NODE_DISCONNECT)) {
-                set_connection_state(state);
+                set_connection_state((unsigned int) state);
                 set_command(DLT_SERVICE_ID_PASSIVE_NODE_CONNECT);
             }
             else {
@@ -363,8 +360,18 @@ static int parse_args(int argc, char *argv[])
             set_command(DLT_SERVICE_ID_PASSIVE_NODE_CONNECTION_STATUS);
             break;
         case 't':
-            set_timeout(strtol(optarg, NULL, 10));
+            set_timeout((int) strtol(optarg, NULL, 10));
             break;
+        case 'S':
+        {
+            set_send_serial_header(1);
+            break;
+        }
+        case 'R':
+        {
+            set_resync_serial_header(1);
+            break;
+        }
         case 'v':
             set_verbosity(1);
             pr_verbose("Now in verbose mode.\n");
@@ -401,6 +408,8 @@ int main(int argc, char *argv[])
 
     set_ecuid(NULL);
     set_timeout(DLT_CTRL_TIMEOUT);
+    set_send_serial_header(0);
+    set_resync_serial_header(0);
 
     /* Get command line arguments */
     if (parse_args(argc, argv) != 0)

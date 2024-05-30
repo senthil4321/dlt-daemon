@@ -5,14 +5,14 @@
  * This code is developed by Advanced Driver Information Technology.
  * Copyright of Advanced Driver Information Technology, Bosch and DENSO.
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -173,7 +173,7 @@ int test_macro_interface(void)
 
     for(num2 = 0 ; num2 < 10 ; num2++)
     {
-        buffer[num2] = num2;
+        buffer[num2] = (char) num2;
     }
     DLT_LOG_ID(context_macro_test, DLT_LOG_INFO, 14,
                              DLT_STRING("raw"), DLT_RAW(buffer, 10));
@@ -300,7 +300,7 @@ int test_function_interface(void)
 
     for(num2 = 0 ; num2 < 10 ; num2++)
     {
-        buffer[num2] = num2;
+        buffer[num2] = (char) num2;
     }
 
     if (dlt_user_log_write_start_id(&(context_function_test),

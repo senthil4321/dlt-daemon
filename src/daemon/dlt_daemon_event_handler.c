@@ -5,14 +5,14 @@
  * This code is developed by Advanced Driver Information Technology.
  * Copyright of Advanced Driver Information Technology, Bosch and DENSO.
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -42,6 +42,7 @@
 #include "dlt_daemon_connection_types.h"
 #include "dlt_daemon_event_handler.h"
 #include "dlt_daemon_event_handler_types.h"
+#include "dlt_daemon_common.h"
 
 /**
  * \def DLT_EV_TIMEOUT_MSEC
@@ -205,6 +206,10 @@ int dlt_daemon_handle_event(DltEventHandler *pEvent,
         return ret;
     }
 
+#ifdef DLT_SYSTEMD_WATCHDOG_ENABLE
+    unsigned int start_time = dlt_uptime();
+#endif
+
     for (i = 0; i < pEvent->nfds; i++) {
         int fd = 0;
         DltConnection *con = NULL;
@@ -246,9 +251,10 @@ int dlt_daemon_handle_event(DltEventHandler *pEvent,
         callback = dlt_connection_get_callback(con);
 
         if (!callback) {
-            dlt_vlog(LOG_CRIT, "Unable to find function for %d handle type.\n",
+            dlt_vlog(LOG_CRIT, "Unable to find function for %u handle type.\n",
                      type);
-            return -1;
+            /* keep handling remaining events */
+            continue;
         }
 
         /* From now on, callback is correct */
@@ -256,10 +262,13 @@ int dlt_daemon_handle_event(DltEventHandler *pEvent,
                      daemon_local,
                      con->receiver,
                      daemon_local->flags.vflag) == -1) {
-            dlt_vlog(LOG_CRIT, "Processing from %d handle type failed!\n",
+            dlt_vlog(LOG_CRIT, "Processing from %u handle type failed!\n",
                      type);
             return -1;
         }
+#ifdef DLT_SYSTEMD_WATCHDOG_ENABLE
+        dlt_daemon_trigger_systemd_watchdog_if_necessary(&start_time, daemon->watchdog_trigger_interval);
+#endif
     }
 
     return 0;
@@ -402,7 +411,7 @@ int dlt_connection_check_activate(DltEventHandler *evhdl,
     case ACTIVE:
 
         if (activation_type == DEACTIVATE) {
-            dlt_vlog(LOG_INFO, "Deactivate connection type: %d\n", con->type);
+            dlt_vlog(LOG_INFO, "Deactivate connection type: %u\n", con->type);
 
             dlt_event_handler_disable_fd(evhdl, con->receiver->fd);
 
@@ -416,7 +425,7 @@ int dlt_connection_check_activate(DltEventHandler *evhdl,
     case INACTIVE:
 
         if (activation_type == ACTIVATE) {
-            dlt_vlog(LOG_INFO, "Activate connection type: %d\n", con->type);
+            dlt_vlog(LOG_INFO, "Activate connection type: %u\n", con->type);
 
             dlt_event_handler_enable_fd(evhdl,
                                         con->receiver->fd,
@@ -427,7 +436,7 @@ int dlt_connection_check_activate(DltEventHandler *evhdl,
 
         break;
     default:
-        dlt_vlog(LOG_ERR, "Unknown connection status: %d\n", con->status);
+        dlt_vlog(LOG_ERR, "Unknown connection status: %u\n", con->status);
         return -1;
     }
 

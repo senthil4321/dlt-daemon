@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -45,16 +45,25 @@
 #define CORE_FILE_PATTERN           "%s/core.%d.%s.%d.gz"
 #define CONTEXT_FILE_PATTERN        "%s/context.%d.%s.%d.txt"
 
+#if ((__SIZEOF_POINTER__) == 4)
 #define ELF_Ehdr    Elf32_Ehdr
 #define ELF_Phdr    Elf32_Phdr
 #define ELF_Shdr    Elf32_Shdr
 #define ELF_Nhdr    Elf32_Nhdr
+#else
+#define ELF_Ehdr    Elf64_Ehdr
+#define ELF_Phdr    Elf64_Phdr
+#define ELF_Shdr    Elf64_Shdr
+#define ELF_Nhdr    Elf64_Nhdr
+#endif
 
 typedef struct
 {
     uint64_t pc;
     uint64_t ip;
     uint64_t lr;
+    uint64_t sp;
+    uint64_t fp;
 
 } cdh_registers_t;
 

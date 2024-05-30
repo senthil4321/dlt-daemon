@@ -5,14 +5,14 @@
  * This code is developed by Advanced Driver Information Technology.
  * Copyright of Advanced Driver Information Technology, Bosch and DENSO.
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -148,6 +148,7 @@ static int dlt_config_file_set_section(DltConfigFile *file, char *name)
 
     if (s->keys == NULL) {
         free(s->name);
+        s->name = NULL;
         dlt_log(LOG_ERR, "Cannot allocate memory for internal data structure\n");
         return -1;
     }
@@ -384,7 +385,7 @@ static void dlt_config_file_read_file(DltConfigFile *file, FILE *hdl)
         case DLT_CONFIG_FILE_NEW_DATA:     /* store str1 and str2 as new data for section */
 
             if (is_section_valid == 0)
-                ret = dlt_config_file_set_section_data(file, str1, str2);
+                dlt_config_file_set_section_data(file, str1, str2);
 
             break;
         default:     /* something is wrong with the line */
@@ -429,7 +430,7 @@ DltConfigFile *dlt_config_file_init(char *file_name)
     DltConfigFile *file;
     FILE *hdl = NULL;
 
-    if ((file_name == NULL) || (strlen(file_name) >= DLT_CONFIG_FILE_PATH_MAX_LEN)) {
+    if ((file_name == NULL) || (strlen(file_name) >= DLT_PATH_MAX)) {
         dlt_log(LOG_ERR, "Given configuration file invalid\n");
         return NULL;
     }
@@ -495,6 +496,7 @@ int dlt_config_file_get_section_name(const DltConfigFile *file,
         return -1;
 
     strncpy(name, (file->sections + num)->name, DLT_CONFIG_FILE_ENTRY_MAX_LEN);
+    name[DLT_CONFIG_FILE_ENTRY_MAX_LEN - 1] = '\0';
 
     return 0;
 }

@@ -3,14 +3,14 @@
 #
 # Copyright (C) 2011-2015, BMW AG
 #
-# This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+# This file is part of COVESA Project DLT - Diagnostic Log and Trace.
 #
 # This Source Code Form is subject to the terms of the
 # Mozilla Public License (MPL), v. 2.0.
 # If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# For further information see http://www.genivi.org/.
+# For further information see http://www.covesa.org/.
 #######
 
 # Run CheckIncludeFiles and CheckFunctionExists
@@ -89,6 +89,12 @@ else()
   CHECK_FUNCTION_EXISTS( mq_send HAVE_FUNC_MQSEND)
   CHECK_FUNCTION_EXISTS( mq_receive HAVE_FUNC_MQRECEIVE)
 endif()
+
+if(CMAKE_THREAD_LIBS_INIT)
+  CHECK_LIBRARY_EXISTS(${CMAKE_THREAD_LIBS_INIT} pthread_setname_np pthread.h HAVE_FUNC_PTHREAD_SETNAME_NP)
+else(CMAKE_THREAD_LIBS_INIT)
+  CHECK_FUNCTION_EXISTS(pthread_setname_np HAVE_FUNC_PTHREAD_SETNAME_NP)
+endif(CMAKE_THREAD_LIBS_INIT)
 
 if(WITH_CHECK_CONFIG_FILE)
   configure_file(${PROJECT_SOURCE_DIR}/cmake/config.h.cmake ${PROJECT_BINARY_DIR}/include/dlt/config.h)

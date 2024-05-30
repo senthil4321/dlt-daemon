@@ -4,14 +4,14 @@
  * Copyright (C) 2018, Codethink Ltd.
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -88,6 +88,7 @@ int verbosity = 0;
 /**
  * Print information, conditional upon requested verbosity level
  */
+void verbose(int level, char *msg, ...) PRINTF_FORMAT(2, 3);
 void verbose(int level, char *msg, ...) {
     if (level <= verbosity) {
         if (verbosity > 1) { /* timestamp */
@@ -102,7 +103,7 @@ void verbose(int level, char *msg, ...) {
             }
         }
 
-        int len = strlen(msg);
+        int len = (int) strlen(msg);
         va_list args;
         va_start (args, msg);
         vprintf(msg, args);
@@ -159,30 +160,31 @@ void write_messages(int ohandle, DltFile *file,
         if ((0 == i % 1001) || (i == message_count - 1))
             verbose(2, "Writing message %d\r", i);
 
-        dlt_file_message(file, timestamps[i].num, 0);
-        iov[0].iov_base = file->msg.headerbuffer;
-        iov[0].iov_len = file->msg.headersize;
-        iov[1].iov_base = file->msg.databuffer;
-        iov[1].iov_len = file->msg.datasize;
+        if (timestamps != NULL) {
+            if (dlt_file_message(file, timestamps[i].num, 0) == DLT_RETURN_OK) {
+                iov[0].iov_base = file->msg.headerbuffer;
+                iov[0].iov_len = file->msg.headersize;
+                iov[1].iov_base = file->msg.databuffer;
+                iov[1].iov_len = file->msg.datasize;
 
-        bytes_written = writev(ohandle, iov, 2);
-        last_errno = errno;
+                bytes_written = writev(ohandle, iov, 2);
+                last_errno = errno;
 
-        if (0 > bytes_written) {
-            printf("%s: returned an error [%s]!\n",
-                    __func__,
-                    strerror(last_errno));
-            if (ohandle > 0) {
-                close(ohandle);
-                ohandle = -1;
+                if (0 > bytes_written) {
+                    printf("%s: returned an error [%s]!\n",
+                            __func__,
+                            strerror(last_errno));
+                    if (ohandle > 0) {
+                        close(ohandle);
+                        ohandle = -1;
+                    }
+                    free(timestamps);
+                    timestamps = NULL;
+
+                    dlt_file_free(file, 0);
+                    exit (-1);
+                }
             }
-            if (timestamps) {
-                free(timestamps);
-                timestamps = NULL;
-            }
-
-            dlt_file_free(file, 0);
-            exit (-1);
         }
     }
 
@@ -229,7 +231,7 @@ int main(int argc, char *argv[]) {
     uint32_t message_count = 0;
 
     uint32_t count = 0;
-    int start = 0;
+    uint32_t start = 0;
     uint32_t delta_tmsp = 0;
     uint32_t delta_systime = 0;
     size_t i;
@@ -378,11 +380,8 @@ int main(int argc, char *argv[]) {
     if ((begin < 0) || (end < 0) || (begin > end) ||
         (begin >= file.counter) || (end >= file.counter)) {
         fprintf(stderr, "ERROR: Selected message [begin-end]-[%d-%d] is out of range!\n", begin, end);
-
         dlt_file_free(&file, vflag);
-        if (ovalue)
-            close(ohandle);
-
+        close(ohandle);
         return -1;
     }
 
@@ -390,24 +389,22 @@ int main(int argc, char *argv[]) {
 
     verbose(1, "Allocating memory\n");
 
-    message_count = 1 + end - begin;
+    message_count = (uint32_t) (1 + end - begin);
 
     timestamp_index = (TimestampIndex *) malloc(sizeof(TimestampIndex) * (message_count + 1));
 
     if (timestamp_index == NULL) {
         fprintf(stderr, "ERROR: Failed to allocate memory for message index!\n");
-
         dlt_file_free(&file, vflag);
-        if (ovalue)
-            close(ohandle);
-
+        close(ohandle);
         return -1;
     }
 
     verbose(1, "Filling %d entries\n", message_count);
 
     for (num = begin; num <= end; num++) {
-        dlt_file_message(&file, num, vflag);
+        if (dlt_file_message(&file, num, vflag) < DLT_RETURN_OK)
+            continue;
         timestamp_index[num - begin].num = num;
         timestamp_index[num - begin].systmsp = file.msg.storageheader->seconds;
         timestamp_index[num - begin].tmsp = file.msg.headerextra.tmsp;
@@ -437,11 +434,8 @@ int main(int argc, char *argv[]) {
 
             if (temp_timestamp_index == NULL) {
                 fprintf(stderr, "ERROR: Failed to allocate memory for array\n");
-
                 dlt_file_free(&file, vflag);
-                if (ovalue)
-                    close(ohandle);
-
+                close(ohandle);
                 return -1;
             }
 
@@ -472,9 +466,7 @@ int main(int argc, char *argv[]) {
         write_messages(ohandle, &file, timestamp_index, count);
     }
 
-    if (ovalue)
-        close(ohandle);
-
+    close(ohandle);
     verbose(1, "Tidying up.\n");
     free(timestamp_index);
     timestamp_index = NULL;

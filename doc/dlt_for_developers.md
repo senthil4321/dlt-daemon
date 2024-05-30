@@ -3,14 +3,15 @@
 Back to [README.md](../README.md)
 
 Table of Contents
-1. [Summary](#Summary)
-2. [Example Application](#DLT-Example-Application)
-3. [General Rules for Logging](#General-Rules-for-Logging)
-4. [The use of Log Levels](#The-use-of-Log-Levels)
-5. [DLT Library Runtime Configuration](#DLT-Library-Runtime-Configuration)
-6. [DLT API Usage](#DLT-API-Usage)
-7. [DLT injection messages](#DLT-Injection-Messages)
-8. [Log level changed callback](#Log-level-changed-callback)
+1. [DLT Example Application](#DLT-Example-Application)
+2. [General Rules for Logging](#General-Rules-for-Logging)
+3. [The use of Log Levels](#The-use-of-Log-Levels)
+4. [DLT Library Runtime Configuration](#DLT-Library-Runtime-Configuration)
+5. [DLT API Usage](#DLT-API-Usage)
+6. [DLT injection messages](#DLT-Injection-Messages)
+7. [Log level changed callback](#Log-level-changed-callback)
+8. [Disable injection messages](#Disable-injection-messages)
+9. [Use DLT in library](#Use-DLT-in-library)
 
 ## DLT Example Application
 
@@ -27,7 +28,7 @@ minimal code example. Detailed information about the API can be found later in
 this document.
 
 ```
-#include <dlt.h>
+#include <dlt/dlt.h>
 
 DLT_DECLARE_CONTEXT(ctx); /* declare context */
 
@@ -62,14 +63,66 @@ string. On application cleanup, all DLT contexts, as well as the DLT
 application have to be unregistered.
 
 ### DLT with cmake
-To use DLT with cmake, the following lines are the important ones:
+
+To use DLT with CMake, the recommended way is to use the CMake Config file
+that is being generated as part of installation.
+
+You can thus:
+```
+find_package(automotive-dlt REQUIRED)
+...
+target_link_libraries(myapp PRIVATE Genivi::dlt)
+```
+which lets your project automatically gain all necessary compile and link flags
+needed by libdlt, including the include directories.
+
+The generated CMake Config file follows "Modern CMake" convention and only
+exports an IMPORTED CMake target; it does not set any variables, except for the
+`automotive-dlt_FOUND` variable that can be used to treat DLT as an optional
+dependency.
+
+The generated CMake config file (which is implicitly being used when you call
+`find_package(automotive-dlt)`) by default only adds the top-level directory
+to the compiler's header search path; this requires that users' #include
+directives are written in the regular form e.g. `<dlt/dlt.h>`. If you want
+to be able to use the legacy form `<dlt.h>` as well (as is always allowed by
+the pkg-config module for backwards compatibility reasons), you can configure
+DLT with the CMake option `-DWITH_LEGACY_INCLUDE_PATH=On` in order to
+achieve that.
+
+### DLT with pkg-config
+
+Alternatively to the CMake integration detailed above, it is also possible
+to use DLT via pkg-config. This can also be done with CMake's PkgConfig
+module as well.
+
+#### PkgConfig usage with "Modern CMake"
+
+Here, you let the PkgConfig module create targets as well; the target's name
+is however determined by the PkgConfig module:
+
+```
+find_package(PkgConfig)
+pkg_check_modules(DLT REQUIRED IMPORTED_TARGET automotive-dlt)
+```
+
+As per "Modern CMake", there are again no variables to be added, but only
+a CMake target to be added to the link libraries:
+
+```
+target_link_libraries(myapp PRIVATE PkgConfig::DLT)
+```
+
+#### PkgConfig usage with "Legacy CMake" (<3.0)
+
+Here, you let the PkgConfig module only create variables, but not targets:
 
 ```
 find_package(PkgConfig)
 pkg_check_modules(DLT REQUIRED automotive-dlt)
 ```
 
-to INCLUDE\_DIRECTORIES, add
+to INCLUDE\_DIRECTORIES (or, since CMake 2.8.11, TARGET\_INCLUDE\_DIRECTORIES), add
 
 ```
 ${DLT_INCLUDE_DIRS}
@@ -78,8 +131,27 @@ ${DLT_INCLUDE_DIRS}
 and to TARGET\_LINK\_LIBRARIES:
 
 ```
-${DLT_LIBRARIES}
+${DLT_LINK_LIBRARIES}  (preferred, for CMake >= 3.12)
+${DLT_LIBRARIES}       (otherwise)
 ```
+
+The contents of `${DLT_LIBRARIES}` do not include the library's path
+(e.g. `-L/path/to/lib`), so if the library resides in a location that is not
+on the linker's default search path, you'll either have to add that path
+to LINK\_DIRECTORIES:
+```
+link_directories(${DLT_LIBRARY_DIRS})
+```
+or, alternatively, not use `${DLT_LIBRARIES}`, but `${DLT_LDFLAGS}` instead,
+which combines `${DLT_LIBRARIES}` and `${DLT_LIBRARY_DIRS}`:
+```
+target_link_libraries(myapp ${DLT_LDFLAGS})
+```
+
+### Limitation
+
+On Android, definition of `SIGUSR1` in DLT application shall be avoided since
+DLT library blocks `SIGUSR1` to terminate housekeeper thread at exit.
 
 ## General Rules for Logging
 
@@ -156,7 +228,8 @@ for(int index=0; index<MAX; index++)
 Good example:
 
 ```
-for(int index=0; index<MAX; index++)
+int index = 0;
+for(; index<MAX; index++)
 {
   /* ... */
 }
@@ -192,7 +265,7 @@ DLT\_LOG\_INFO | Informational, providing high level understanding
 DLT\_LOG\_DEBUG | Detailed debug information for programmers
 DLT\_LOG\_VERBOSE | Verbose debug information for programmers
 
-Please be aware the the default Log Level is set to INFO; this means message
+Please be aware the default Log Level is set to INFO; this means message
 which are logged in INFO, WARN, ERROR and FATAL will logged. Hint: The default
 Log Level can be changed by setting an environment variable (see DLT Library -
 runtime configuration).
@@ -317,14 +390,15 @@ environment variables are described:
 
 ### Initial Log level
 
-The default log level of DLT User library is DLT\_LOG\_INFO. This can be changed
+The default log level of DLT User library is DLT\_LOG\_INFO (when using macro
+DLT\_REGISTER\_CONTEXT or dlt\_register\_context() api). This can be changed
 using a DLT client application (e.g. DLT Viewer). But there might be situations
-where DEBUG or VERBOSE messages are needed before the DLT Daemon updated the
-user library.
+where DEBUG or VERBOSE messages are needed before the DLT Daemon updated the user library.
 
-In this case DLT\_INITIAL\_LOG\_LEVEL can be exported. Using this environment
-variable, the user can specify log level for contexts that will be used on
-library startup.
+There are several ways to initialize log level in DLT library startup phase.
+ 
+1. It is possible to do that by exporting environment variable DLT\_INITIAL\_LOG\_LEVEL.
+   By using this way, the user can specify log level for contexts.
 
 For example, an application "EXA1" has two contexts "CON1" and "CON2". For
 "CON1" log level DEBUG and for "CON2" log level VERBOSE shall be used. The
@@ -343,6 +417,31 @@ If the log level for all contexts of application "EXA1" shall be initialized, th
 If the log level of context "CON1" shall be initialized, then:
 
 > export DLT\_INITIAL\_LOG\_LEVEL=":CON1:2"
+
+In case only the log level of context "CON1" of application "EXA1" shall be
+initialized, and other contexts will be ignored, then:
+
+> export DLT\_INITIAL\_LOG\_LEVEL="::0;EXA1:CON1:2"
+
+2. If DLT\_INITIAL\_LOG\_LEVEL variable is not exported in the environment,
+log level for it each context can be changed in the config file (/etc/dlt.conf).
+
+Default log level will be 4 (DLT\_LOG\_INFO)
+
+> ContextLogLevel = 4
+
+3. DLT user can use dlt\_register\_context\_ll\_ts() api to initialize log
+level for each context.
+
+Example:
+> //Register new context to daemon, with initial log level is DLT\_LOG\_VERBOSE
+>
+> dlt\_register\_context\_ll\_ts(&con\_exa1, "CON", "First context", DLT\_LOG\_VERBOSE, DLT\_TRACE\_STATUS\_OFF);
+
+The priority of context log level would be as follows:
+- Priority 1: Using dlt\_register\_context\_ll\_ts() api
+- Priority 2: Using environment variable DLT\_INITIAL\_LOG\_LEVEL
+- Priority 3: Setting in config file dlt.conf
 
 ### Local print mode
 
@@ -494,9 +593,14 @@ int main(int argc, const char* argv[])
 
 ### Logging command
 
-DLT provides functions and macros for logging, whereas the interface for
-Verbose and Non-Verbose differs. The following table shows an example of all 4
-types for logging using a constant string and an integer.
+DLT provides functions that allow for flexible construction of messages
+with an arbitrary number of arguments. Both Verbose and Non-Verbose
+messages are supported, with different APIs. Sending a message using
+these functions require multiple function calls, for starting message
+construction, adding the arguments, and sending off the message.
+
+The following table shows an example of all 4 types for logging
+using a constant string and an integer.
 
 #### Verbose vs. Non-Verbose API
 
@@ -540,30 +644,37 @@ if (dlt_user_log_write_start_id(&ctx, &ctxdata, DLT_LOG_INFO, 42) > 0) {
 }
 ```
 
-Drawback of that solution is that the developer has to decide during
-development if Verbose or Non-Verbose mode shall be used and the code most
-likely ends up as written in the dlt-example-user application:
+#### Statefulness of Verbose/Non-Verbose
 
-```
-if (gflag) {
-    /* Non-verbose mode */
-    DLT_LOG_ID(ctx, DLT_LOG_INFO, 42 /* unique msg ID */, DLT_INT(num),
-               DLT_STRING(text));
-}
-else {
-    /* Verbose mode */
-    DLT_LOG(ctx, DLT_LOG_INFO, DLT_INT(num), DLT_STRING(text));
-}
-```
+The library uses a global state that applies to all logging commands being used.
+If the library is in global "Verbose" mode, both the "Verbose" and the "Non-Verbose"
+API calls shown above will always result in Verbose messages being sent.
 
-##### Switching Verbose and Non-Verbose
+However, if the library is in global "Non-Verbose" mode, it is possible to send
+both Verbose and Non-Verbose messages in a single session; all "Verbose" APIs will
+send Verbose messages, and all "Non-Verbose" APIs will send Non-Verbose messages.
+
+It does not make sense to send a Non-Verbose message via a Verbose API, as there
+is then no sensible message ID, which is however mandatory when sending
+Non-Verbose messages.
+
+#### Switching Verbose and Non-Verbose
 
 To switch Verbose/Non-Verbose mode (Verbose mode is default), the following
 APIs are available:
 
+##### MACRO
+
 ```
 DLT_VERBOSE_MODE();
 DLT_NONVERBOSE_MODE();
+```
+
+##### Function
+
+```
+dlt_verbose_mode();
+dlt_nonverbose_mode();
 ```
 
 #### String arguments
@@ -587,9 +698,9 @@ std::string_view key = line.substr(0, 4);
 std::string_view value = line.substr(6);
 
 if (dlt_user_log_write_start_id(&ctx, &ctxdata, DLT_LOG_INFO, 42) > 0) {
-    dlt_user_log_write_constant_string(&myctxdata, "key");
+    dlt_user_log_write_constant_utf8_string(&myctxdata, "key");
     dlt_user_log_write_sized_utf8_string(&myctxdata, key.data(), key.size());
-    dlt_user_log_write_constant_string(&myctxdata, "value");
+    dlt_user_log_write_constant_utf8_string(&myctxdata, "value");
     dlt_user_log_write_sized_utf8_string(&myctxdata, value.data(), value.size());
     dlt_user_log_write_finish(&myctxdata);
 }
@@ -626,6 +737,87 @@ if (dlt_user_log_write_start(&ctx, &ctxdata, DLT_LOG_INFO) > 0) {
 }
 ```
 
+#### Send log message with given buffer
+
+DLT applications can prepare a log message buffer by themselves instead
+of calling logging parameters. There are two benefits; the applications
+can reduce API calls to DLT library as much as possible so that the
+APIs won't block the application's sequence, and dynamic allocation can
+be avoided in DLT library during runtime.
+
+The applications should prepare following values in order to use this
+functionality:
+
+- *char buffer[DLT_USER_BUF_MAX_SIZE]*: Buffer which contains one log message payload
+- *size_t size*: Buffer size
+- *int32_t args_num*: Number of arguments
+
+One argument in the buffer consists of following:
+| Length(byte)   | Description  |
+|----------------|--------------|
+| 4              | Type Info    |
+| x              | Data Payload |
+
+DLT Applications need to simulate what are done in logging parameters to
+store data to the buffer (type info given to the buffer, etc.),
+otherwise the behavior is undefined.
+
+Also important note here is that the functionality works properly only
+with these function combination:
+
+- *Start logging*: dlt\_user\_log\_write\_start\_w\_given\_buffer
+- *Finish logging*: dlt\_user\_log\_write\_finish\_w\_given\_buffer
+
+Since the function does not allocate memory dynamically, it could lead
+to segmentation fault or memory leak with different APIs. It is mandatory
+to check if dlt_user_is_logLevel_enabled is returning DLT_RETURN_TRUE before
+calling dlt_user_log_write_start_w_given_buffer (see below code example).
+
+##### Macro
+
+No macro interface is available as of now.
+
+##### Function
+
+```
+/* Example: Prepare one log message with uint16 */
+char buffer[DLT_USER_BUF_MAX_SIZE] = {0};
+size_t size = 0;
+int32_t args_num = 0;
+
+uint32_t type_info = DLT_TYPE_INFO_UINT | DLT_TYLE_16BIT;
+memcpy(buffer + size, &(type_info), sizeof(uint32_t));
+size += sizeof(uint32_t);
+
+uint16_t data = 1234;
+memcpy(buffer + size, &data, sizeof(uint16_t));
+size += sizeof(uint16_t);
+
+args_num++;
+
+/* Give the buffer to DLT library */
+if (dlt_user_is_logLevel_enabled(&ctx,DLT_LOG_INFO) == DLT_RETURN_TRUE)
+{
+  if (dlt_user_log_write_start_w_given_buffer(&ctx, &ctxdata, DLT_LOG_INFO, buffersize, args_num) > 0)
+  {
+      dlt_user_log_write_finish_w_given_buffer(&ctxdata);
+  }
+}
+```
+
+#### Attributes
+
+In verbose mode, log message arguments can contain attributes. A "name" attribute
+describes the purpose or semantics of an argument, and a "unit" attribute
+describes its unit (if applicable - not all argument data types support having
+a "unit" attribute).
+
+```
+dlt_user_log_write_float64_attr(&myctxdata, 4.2, "speed", "m/s");
+```
+
+In non-verbose mode, these attributes are not added to the message.
+
 ### Logging parameters
 
 The following parameter types can be used. Multiple parameters can be added to
@@ -635,25 +827,45 @@ exceed 1390 bytes, including the DLT message header.
 Type | Description
 --- | ---
 DLT\_STRING(TEXT) | String
+DLT\_STRING\_ATTR(TEXT,NAME) | String (with attribute)
 DLT\_SIZED\_STRING(TEXT,LENGTH) | String with known length
+DLT\_SIZED\_STRING\_ATTR(TEXT,LENGTH,NAME) | String with known length (with attribute)
 DLT\_CSTRING(TEXT) | Constant string (not sent in non-verbose mode)
+DLT\_CSTRING\_ATTR(TEXT,NAME) | Constant string (with attribute; not sent in non-verbose mode)
 DLT\_SIZED\_CSTRING(TEXT,LENGTH) | Constant string with known length (not sent in non-verbose mode)
+DLT\_SIZED\_CSTRING\_ATTR(TEXT,LENGTH,NAME) | Constant string with known length (with attribute; not sent in non-verbose mode)
 DLT\_UTF8(TEXT) | Utf8-encoded string
+DLT\_UTF8\_ATTR(TEXT,NAME) | Utf8-encoded string (with attribute)
 DLT\_SIZED\_UTF8(TEXT,LENGTH) | Utf8-encoded string with known length
+DLT\_SIZED\_UTF8\_ATTR(TEXT,LENGTH,NAME) | Utf8-encoded string with known length (with attribute)
 DLT\_RAW(BUF,LENGTH) | Raw buffer
+DLT\_RAW\_ATTR(BUF,LENGTH,NAME) | Raw buffer (with attribute)
 DLT\_INT(VAR) | Integer variable, dependent on platform
+DLT\_INT\_ATTR(VAR,NAME,UNIT) | Integer variable, dependent on platform (with attributes)
 DLT\_INT8(VAR) |Integer 8 Bit variable
+DLT\_INT8\_ATTR(VAR,NAME,UNIT) |Integer 8 Bit variable (with attributes)
 DLT\_INT16(VAR) | Integer 16 Bit variable
+DLT\_INT16\_ATTR(VAR,NAME,UNIT) | Integer 16 Bit variable (with attributes)
 DLT\_INT32(VAR) | Integer 32 Bit variable
+DLT\_INT32\_ATTR(VAR,NAME,UNIT) | Integer 32 Bit variable (with attributes)
 DLT\_INT64(VAR) | Integer 64 bit variable
+DLT\_INT64\_ATTR(VAR,NAME,UNIT) | Integer 64 bit variable (with attributes)
 DLT\_UINT(VAR) | Unsigned integer variable
+DLT\_UINT\_ATTR(VAR,NAME,UNIT) | Unsigned integer variable (with attributes)
 DLT\_UINT8(VAR) | Unsigned 8 Bit integer variable
+DLT\_UINT8\_ATTR(VAR,NAME,UNIT) | Unsigned 8 Bit integer variable (with attributes)
 DLT\_UINT16(VAR) |Unsigned 16 Bit integer variable
+DLT\_UINT16\_ATTR(VAR,NAME,UNIT) |Unsigned 16 Bit integer variable (with attributes)
 DLT\_UINT32(VAR) | Unsigned 32 Bit integer variable
+DLT\_UINT32\_ATTR(VAR,NAME,UNIT) | Unsigned 32 Bit integer variable (with attributes)
 DLT\_UINT64(VAR) | Unsigned 64 bit integer variable
+DLT\_UINT64\_ATTR(VAR,NAME,UNIT) | Unsigned 64 bit integer variable (with attributes)
 DLT\_BOOL(VAR) | Boolean variable
+DLT\_BOOL\_ATTR(VAR,NAME) | Boolean variable (with attribute)
 DLT\_FLOAT32(VAR) | Float 32 Bit variable
+DLT\_FLOAT32\_ATTR(VAR,NAME,UNIT) | Float 32 Bit variable (with attributes)
 DLT\_FLOAT64(VAR) | Float 64 Bit variable
+DLT\_FLOAT64\_ATTR(VAR,NAME,UNIT) | Float 64 Bit variable (with attributes)
 DLT\_HEX8(UINT\_VAR) | 8 Bit hex value
 DLT\_HEX16(UINT\_VAR) | 16 Bit hex value
 DLT\_HEX32(UINT\_VAR) | 32 Bit hex value
@@ -779,3 +991,51 @@ context changed. The usage is similar to DLT\_REGISTER\_INJECTION\_CALLBACK.
 ```
 DLT_REGISTER_LOG_LEVEL_CHANGED_CALLBACK(CONTEXT, CALLBACK)
 ```
+
+## Disable injection messages
+
+An environment variable named `DLT_DISABLE_INJECTION_MSG_AT_USER` could be used in case
+dlt application wants to ignore all data/messages from dlt-daemon completely.
+
+To use:
+
+```
+export DLT_DISABLE_INJECTION_MSG_AT_USER=1
+```
+
+To clear:
+
+```
+unset DLT_DISABLE_INJECTION_MSG_AT_USER
+```
+
+## Use DLT in library
+
+There are cases where a library wants to use DLT interface to output its log message.
+In such case, applications and contexts can be registered using following way.
+
+### Application registration
+
+The library can check if an application is already registered or not by
+`DLT_GET_APPID()` API. If returned application ID is not NULL, it can be considered
+that application was already registered previously. If it's NULL, then application
+can be registered.
+
+```Example
+// Check if an application is already registered in this process
+char appid[DLT_ID_SIZE];
+DLT_GET_APPID(&appid);
+if (appid[0] != '\0')
+{
+  printf("Application is already registered with AppID=[%s]\n", appid);
+}
+else
+{
+  DLT_REGISTER_APP("APP", "Application for library xxx");
+}
+```
+
+### Context registration
+
+The same context ID can be used among different applications, so context can be
+registered as usual.

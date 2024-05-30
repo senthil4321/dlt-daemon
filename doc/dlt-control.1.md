@@ -6,7 +6,7 @@
 
 # SYNOPSIS
 
-**dlt-control** \[**-v**\] \[**-h**\] \[**-S**\] \[**-R**\] \[**-y**\] \[**-b** baudrate\] \[**-e** ecuid\] \[**-a** id\] \[**-c** id\] \[**-s** id\] \[**-m** message\] \[**-x** message\] \[**-t** milliseconds\] \[**-l** level\] \[**-r** tracestatus\] \[**-d** loglevel\] \[**-f** tracestatus\] \[**-i** enable\] \[**-o**\] \[**-g**\] \[**-j**\] \[**-u**\] hostname/serial\_device\_name
+**dlt-control** \[**-v**\] \[**-h**\] \[**-S**\] \[**-R**\] \[**-y**\] \[**-b** baudrate\] \[**-e** ecuid\] \[**-a** id\] \[**-c** id\] \[**-s** id\] \[**-m** message\] \[**-x** message\] \[**-t** milliseconds\] \[**-l** level\] \[**-r** tracestatus\] \[**-d** loglevel\] \[**-f** tracestatus\] \[**-i** enable\] \[**-o**\] \[**-g**\] \[**-j**\] \[**-u**\] \[**-p** port\] hostname/serial\_device\_name
 
 # DESCRIPTION
 
@@ -126,6 +126,10 @@ is used. See example for detail.
 -u
 :    unix port
 
+-p
+
+:    Port for TCP communication (Default: 3490).
+
 # EXAMPLES
 
 Change log level of application "APP1" to DEBUG with unix port
@@ -154,7 +158,7 @@ Copyright (C) 2019 Advanced Driver Information Technology, Bosch and DENSO. Lice
 
 # BUGS
 
-See Github issue: <https://github.com/GENIVI/dlt-daemon/issues>
+See Github issue: <https://github.com/COVESA/dlt-daemon/issues>
 
 # SEE ALSO
 

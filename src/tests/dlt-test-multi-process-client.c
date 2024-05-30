@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -45,6 +45,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <time.h>
@@ -66,6 +67,8 @@ typedef struct {
     char *output;
     int output_handle;
     int messages_left;
+    int sendSerialHeaderFlag;
+    int resyncSerialHeaderFlag;
     DltClient *client_ref;
 } s_parameters;
 
@@ -93,6 +96,8 @@ void usage(char *name)
     printf("%s", version);
     printf("Options:\n");
     printf(" -m             Total messages to receive. (Default: 10000)\n");
+    printf(" -S             Send message with serial header (Default: Without serial header)\n");
+    printf(" -R             Enable resync serial header\n");
     printf(" -y             Serial device mode.\n");
     printf(" -b baudrate    Serial device baudrate. (Default: 115200)\n");
     printf(" -v             Verbose. Increases the verbosity level of dlt client library.\n");
@@ -110,6 +115,8 @@ void init_params(s_parameters *params)
     params->output = NULL;
     params->output_handle = -1;
     params->baudrate = 115200;
+    params->sendSerialHeaderFlag = 0;
+    params->resyncSerialHeaderFlag = 0;
 }
 
 /**
@@ -121,11 +128,21 @@ int read_params(s_parameters *params, int argc, char *argv[])
     int c;
     opterr = 0;
 
-    while ((c = getopt(argc, argv, "m:yb:vo:")) != -1)
+    while ((c = getopt(argc, argv, "m:yb:vo:SR")) != -1)
         switch (c) {
         case 'm':
             params->max_messages = atoi(optarg);
             break;
+        case 'S':
+        {
+            params->sendSerialHeaderFlag = 1;
+            break;
+        }
+        case 'R':
+        {
+            params->resyncSerialHeaderFlag = 1;
+            break;
+        }
         case 'y':
             params->serial = 1;
             break;
@@ -204,6 +221,10 @@ int main(int argc, char *argv[])
     dlt_client_init(&client, params.verbose);
     dlt_client_register_message_callback(receive);
 
+    /* Update the send and resync serial header flags based on command line option */
+    client.send_serial_header = params.sendSerialHeaderFlag;
+    client.resync_serial_header = params.resyncSerialHeaderFlag;
+
     err = init_dlt_connect(&client, &params, argc, argv);
 
     if (err != 0) {
@@ -268,7 +289,7 @@ void print_stats(s_statistics stats, s_parameters params)
     }
 
     fflush(stdout);
-    last_print_time = time(NULL);
+    last_print_time = (int) time(NULL);
 }
 /**
  * Callback for dlt client
@@ -291,15 +312,15 @@ int receive(DltMessage *msg, void *data)
     if (stats.first_message_time == 0)
         stats.first_message_time = time(NULL);
 
-    int buflen = msg->datasize + 1;
-    char *buf = malloc(buflen);
+    int buflen = (int) msg->datasize + 1;
+    char *buf = malloc((size_t) buflen);
 
     if (buf == 0) {
         printf("Out of memory\n");
         return -1;
     }
 
-    memset(buf, 0, buflen);
+    memset(buf, 0, (size_t) buflen);
 
     dlt_message_payload(msg, buf, buflen - 1, DLT_OUTPUT_ASCII, 0);
 
@@ -320,7 +341,7 @@ int receive(DltMessage *msg, void *data)
         iov[1].iov_base = msg->databuffer;
         iov[1].iov_len = msg->datasize;
 
-        stats.output_bytes += writev(params->output_handle, iov, 2);
+        stats.output_bytes += (int) writev(params->output_handle, iov, 2);
     }
 
     if (params->messages_left < 1)

@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -75,6 +75,7 @@
 
 #   include <netinet/in.h>
 #   include <stdio.h>
+#   include <stdbool.h>
 #   ifdef __linux__
 #      include <linux/limits.h>
 #      include <sys/socket.h>
@@ -85,6 +86,14 @@
 #   if !defined(_MSC_VER)
 #      include <unistd.h>
 #      include <time.h>
+#   endif
+
+#   if defined(__GNUC__)
+#      define PURE_FUNCTION __attribute__((pure))
+#      define PRINTF_FORMAT(a,b) __attribute__ ((format (printf, a, b)))
+#   else
+#      define PURE_FUNCTION /* nothing */
+#      define PRINTF_FORMAT(a,b) /* nothing */
 #   endif
 
 #   if !defined (__WIN32__) && !defined(_MSC_VER)
@@ -182,13 +191,13 @@
 #      define LOG_DAEMON  (3 << 3)
 #   endif
 
-enum {
+typedef enum {
     DLT_LOG_TO_CONSOLE = 0,
     DLT_LOG_TO_SYSLOG = 1,
     DLT_LOG_TO_FILE = 2,
     DLT_LOG_TO_STDERR = 3,
     DLT_LOG_DROPPED = 4
-};
+} DltLoggingMode;
 
 /**
  * The standard TCP Port used for DLT daemon, can be overwritten via -p \<port\> when starting dlt-daemon
@@ -233,13 +242,9 @@ enum {
 #      define __func__ __FUNCTION__
 #   endif
 
-#   define PRINT_FUNCTION_VERBOSE(_verbose)  \
-    { \
-        if (_verbose) \
-        { \
-            dlt_vlog(LOG_INFO, "%s()\n", __func__); \
-        } \
-    }
+#   define PRINT_FUNCTION_VERBOSE(_verbose) \
+    if (_verbose) \
+        dlt_vlog(LOG_INFO, "%s()\n", __func__)
 
 #   ifndef NULL
 #      define NULL (char *)0
@@ -290,44 +295,44 @@ enum {
 #   define DLT_FILTER_MAX 30 /**< Maximum number of filters */
 
 #   define DLT_MSG_READ_VALUE(dst, src, length, type) \
-    { \
+    do { \
         if ((length < 0) || ((length) < ((int32_t)sizeof(type)))) \
         { length = -1; } \
         else \
         { dst = *((type *)src); src += sizeof(type); length -= sizeof(type); } \
-    }
+    } while(false)
 
 #   define DLT_MSG_READ_ID(dst, src, length) \
-    { \
+    do { \
         if ((length < 0) || ((length) < DLT_ID_SIZE)) \
         { length = -1; } \
         else \
         { memcpy(dst, src, DLT_ID_SIZE); src += DLT_ID_SIZE; length -= DLT_ID_SIZE; } \
-    }
+    } while(false)
 
-#define DLT_MSG_READ_STRING(dst, src, maxlength, dstlength, length) \
-{ \
-    if ((maxlength < 0) || (length <= 0) || (dstlength < length) || (maxlength < length)) \
-    { \
-        maxlength = -1; \
-    } \
-    else \
-    { \
-        memcpy(dst, src, length); \
-        dlt_clean_string(dst, length); \
-        dst[length] = 0; \
-        src += length; \
-        maxlength -= length; \
-    } \
-}
+#   define DLT_MSG_READ_STRING(dst, src, maxlength, dstlength, length) \
+    do { \
+        if ((maxlength < 0) || (length <= 0) || (dstlength < length) || (maxlength < length)) \
+        { \
+            maxlength = -1; \
+        } \
+        else \
+        { \
+            memcpy(dst, src, length); \
+            dlt_clean_string(dst, length); \
+            dst[length] = 0; \
+            src += length; \
+            maxlength -= length; \
+        } \
+    } while(false)
 
 #   define DLT_MSG_READ_NULL(src, maxlength, length) \
-    { \
+    do { \
         if (((maxlength) < 0) || ((length) < 0) || ((maxlength) < (length))) \
         { length = -1; } \
         else \
         { src += length; maxlength -= length; } \
-    }
+    } while(false)
 
 #   define DLT_HEADER_SHOW_NONE       0x0000
 #   define DLT_HEADER_SHOW_TIME       0x0001
@@ -417,7 +422,7 @@ extern const char dltSerialHeader[DLT_ID_SIZE];
  */
 extern char dltSerialHeaderChar[DLT_ID_SIZE];
 
-#ifndef DLT_USE_UNIX_SOCKET_IPC
+#if defined DLT_DAEMON_USE_FIFO_IPC || defined DLT_LIB_USE_FIFO_IPC
 /**
  * The common base-path of the dlt-daemon-fifo and application-generated fifos
  */
@@ -727,6 +732,9 @@ typedef struct
 {
     char apid[DLT_FILTER_MAX][DLT_ID_SIZE]; /**< application id */
     char ctid[DLT_FILTER_MAX][DLT_ID_SIZE]; /**< context id */
+    int log_level[DLT_FILTER_MAX];          /**< log level */
+    int32_t payload_max[DLT_FILTER_MAX];        /**< upper border for payload */
+    int32_t payload_min[DLT_FILTER_MAX];        /**< lower border for payload */
     int counter;                            /**< number of filters */
 } DltFilter;
 
@@ -744,8 +752,8 @@ typedef struct sDltFile
     int32_t counter;       /**< number of messages in DLT file with filter */
     int32_t counter_total; /**< number of messages in DLT file without filter */
     int32_t position;      /**< current index to message parsed in DLT file starting at 0 */
-    long file_length;      /**< length of the file */
-    long file_position;    /**< current position in the file */
+    uint64_t file_length;    /**< length of the file */
+    uint64_t file_position;  /**< current position in the file */
 
     /* error counters */
     int32_t error_messages; /**< number of incomplete DLT messages found during file parsing */
@@ -769,10 +777,11 @@ typedef struct
     int32_t lastBytesRcvd;    /**< bytes received in last receive call */
     int32_t bytesRcvd;        /**< received bytes */
     int32_t totalBytesRcvd;   /**< total number of received bytes */
-    char *buffer;             /**< pointer to receiver buffer */
-    char *buf;                /**< pointer to position within receiver buffer */
-    char *backup_buf;         /** pointer to the buffer with partial messages if any **/
-    int fd;                   /**< connection handle */
+    char *buffer;         /**< pointer to receiver buffer */
+    char *buf;            /**< pointer to position within receiver buffer */
+    char *backup_buf;     /** pointer to the buffer with partial messages if any **/
+    int fd;               /**< connection handle */
+    DltReceiverType type;     /**< type of connection handle */
     int32_t buffersize;       /**< size of receiver buffer */
     struct sockaddr_in addr;  /**< socket address information */
 } DltReceiver;
@@ -780,7 +789,7 @@ typedef struct
 typedef struct
 {
     unsigned char *shm; /* pointer to beginning of shared memory */
-    int size;           /* size of data area in shared memory */
+    unsigned int size;  /* size of data area in shared memory */
     unsigned char *mem; /* pointer to data area in shared memory */
 
     uint32_t min_size;     /**< Minimum size of buffer */
@@ -861,6 +870,17 @@ DltReturnValue dlt_print_mixed_string(char *text, int textlength, uint8_t *ptr, 
 DltReturnValue dlt_print_char_string(char **text, int textlength, uint8_t *ptr, int size);
 
 /**
+ * Helper function to determine a bounded length of a string.
+ * This function returns zero if @a str is a null pointer,
+ * and it returns @a maxsize if the null character was not found in the first @a maxsize bytes of @a str.
+ * This is a re-implementation of C11's strnlen_s, which we cannot yet assume to be available.
+ * @param str pointer to string whose length is to be determined
+ * @param maxsize maximal considered length of @a str
+ * @return the bounded length of the string
+ */
+PURE_FUNCTION size_t dlt_strnlen_s(const char* str, size_t maxsize);
+
+/**
  * Helper function to print an id.
  * @param text pointer to ASCII string where to write the id
  * @param id four byte char array as used in DLT mesages as IDs.
@@ -905,9 +925,9 @@ DltReturnValue dlt_filter_free(DltFilter *filter, int verbose);
  */
 DltReturnValue dlt_filter_load(DltFilter *filter, const char *filename, int verbose);
 /**
- * Save filter list to file.
+ * Save filter in space separated list to text file.
  * @param filter pointer to structure of organising DLT filter
- * @param filename filename to load filters from
+ * @param filename filename to safe filters into
  * @param verbose if set to true verbose information is printed out.
  * @return negative value if there was an error
  */
@@ -917,28 +937,40 @@ DltReturnValue dlt_filter_save(DltFilter *filter, const char *filename, int verb
  * @param filter pointer to structure of organising DLT filter
  * @param apid application id to be found in filter list
  * @param ctid context id to be found in filter list
+ * @param log_level log level to be found in filter list
+ * @param payload_min minimum payload lenght to be found in filter list
+ * @param payload_max maximum payload lenght to be found in filter list
  * @param verbose if set to true verbose information is printed out.
  * @return negative value if there was an error (or not found), else return index of filter
  */
-int dlt_filter_find(DltFilter *filter, const char *apid, const char *ctid, int verbose);
+int dlt_filter_find(DltFilter *filter, const char *apid, const char *ctid, const int log_level,
+                                const int32_t payload_min, const int32_t payload_max, int verbose);
 /**
  * Add new filter to filter list.
  * @param filter pointer to structure of organising DLT filter
  * @param apid application id to be added to filter list (must always be set).
  * @param ctid context id to be added to filter list. empty equals don't care.
+ * @param log_level log level to be added to filter list. 0 equals don't care.
+ * @param payload_min min lenght of payload to be added to filter list. 0 equals don't care.
+ * @param payload_max max lenght of payload to be added to filter list. INT32_MAX equals don't care.
  * @param verbose if set to true verbose information is printed out.
  * @return negative value if there was an error
  */
-DltReturnValue dlt_filter_add(DltFilter *filter, const char *apid, const char *ctid, int verbose);
+DltReturnValue dlt_filter_add(DltFilter *filter, const char *apid, const char *ctid, const int log_level,
+                                const int32_t payload_min, const int32_t payload_max, int verbose);
 /**
  * Delete filter from filter list
  * @param filter pointer to structure of organising DLT filter
  * @param apid application id to be deleted from filter list
  * @param ctid context id to be deleted from filter list
+ * @param log_level log level to be deleted from filter list
+ * @param payload_min minimum payload lenght to be deleted from filter list
+ * @param payload_max maximum payload lenght to be deleted from filter list
  * @param verbose if set to true verbose information is printed out.
  * @return negative value if there was an error
  */
-DltReturnValue dlt_filter_delete(DltFilter *filter, const char *apid, const char *ctid, int verbose);
+DltReturnValue dlt_filter_delete(DltFilter *filter, const char *apid, const char *ctid, const int log_level,
+                                const int32_t payload_min, const int32_t payload_max, int verbose);
 
 /**
  * Initialise the structure used to access a DLT message.
@@ -964,7 +996,7 @@ DltReturnValue dlt_message_free(DltMessage *msg, int verbose);
  * @param verbose if set to true verbose information is printed out.
  * @return negative value if there was an error
  */
-DltReturnValue dlt_message_header(DltMessage *msg, char *text, int textlength, int verbose);
+DltReturnValue dlt_message_header(DltMessage *msg, char *text, size_t textlength, int verbose);
 /**
  * Print Header into an ASCII string, selective.
  * @param msg pointer to structure of organising access to DLT messages
@@ -974,7 +1006,7 @@ DltReturnValue dlt_message_header(DltMessage *msg, char *text, int textlength, i
  * @param verbose if set to true verbose information is printed out.
  * @return negative value if there was an error
  */
-DltReturnValue dlt_message_header_flags(DltMessage *msg, char *text, int textlength, int flags, int verbose);
+DltReturnValue dlt_message_header_flags(DltMessage *msg, char *text, size_t textlength, int flags, int verbose);
 /**
  * Print Payload into an ASCII string.
  * @param msg pointer to structure of organising access to DLT messages
@@ -984,7 +1016,7 @@ DltReturnValue dlt_message_header_flags(DltMessage *msg, char *text, int textlen
  * @param verbose if set to true verbose information is printed out.
  * @return negative value if there was an error
  */
-DltReturnValue dlt_message_payload(DltMessage *msg, char *text, int textlength, int type, int verbose);
+DltReturnValue dlt_message_payload(DltMessage *msg, char *text, size_t textlength, int type, int verbose);
 /**
  * Check if message is filtered or not. All filters are applied (logical OR).
  * @param msg pointer to structure of organising access to DLT messages
@@ -1140,7 +1172,7 @@ DltReturnValue dlt_file_free(DltFile *file, int verbose);
  * @param filename the filename
  */
 void dlt_log_set_filename(const char *filename);
-#ifndef DLT_USE_UNIX_SOCKET_IPC
+#if defined DLT_DAEMON_USE_FIFO_IPC || defined DLT_LIB_USE_FIFO_IPC
 /**
  * Set FIFO base direction
  * @param pipe_dir the pipe direction
@@ -1152,17 +1184,24 @@ void dlt_log_set_fifo_basedir(const char *pipe_dir);
  * @param level the level
  */
 void dlt_log_set_level(int level);
+
+/**
+ * Set whether to print "name" and "unit" attributes in console output
+ * @param state  true = with attributes, false = without attributes
+ */
+void dlt_print_with_attributes(bool state);
+
 /**
  * Initialize (external) logging facility
  * @param mode positive, 0 = log to stdout, 1 = log to syslog, 2 = log to file, 3 = log to stderr
  */
-void dlt_log_init(int mode);
+DltReturnValue dlt_log_init(int mode);
 /**
  * Print with variable arguments to specified file descriptor by DLT_LOG_MODE environment variable (like fprintf)
  * @param format format string for message
  * @return negative value if there was an error or the total number of characters written is returned on success
  */
-int dlt_user_printf(const char *format, ...);
+int dlt_user_printf(const char *format, ...) PRINTF_FORMAT(1, 2);
 /**
  * Log ASCII string with null-termination to (external) logging facility
  * @param prio priority (see syslog() call)
@@ -1176,7 +1215,7 @@ DltReturnValue dlt_log(int prio, char *s);
  * @param format format string for log message
  * @return negative value if there was an error
  */
-DltReturnValue dlt_vlog(int prio, const char *format, ...);
+DltReturnValue dlt_vlog(int prio, const char *format, ...) PRINTF_FORMAT(2, 3);
 /**
  * Log size bytes with variable arguments to (external) logging facility (similar to snprintf)
  * @param prio priority (see syslog() call)
@@ -1184,7 +1223,7 @@ DltReturnValue dlt_vlog(int prio, const char *format, ...);
  * @param format format string for log message
  * @return negative value if there was an error
  */
-DltReturnValue dlt_vnlog(int prio, size_t size, const char *format, ...);
+DltReturnValue dlt_vnlog(int prio, size_t size, const char *format, ...) PRINTF_FORMAT(3, 4);
 /**
  * De-Initialize (external) logging facility
  */
@@ -1194,10 +1233,11 @@ void dlt_log_free(void);
  * Initialising a dlt receiver structure
  * @param receiver pointer to dlt receiver structure
  * @param _fd handle to file/socket/fifo, fram which the data should be received
+ * @param type specify whether received data is from socket or file/fifo
  * @param _buffersize size of data buffer for storing the received data
  * @return negative value if there was an error
  */
-DltReturnValue dlt_receiver_init(DltReceiver *receiver, int _fd, int _buffersize);
+DltReturnValue dlt_receiver_init(DltReceiver *receiver, int _fd, DltReceiverType type, int _buffersize);
 /**
  * De-Initialize a dlt receiver structure
  * @param receiver pointer to dlt receiver structure
@@ -1208,23 +1248,23 @@ DltReturnValue dlt_receiver_free(DltReceiver *receiver);
  * Initialising a dlt receiver structure
  * @param receiver pointer to dlt receiver structure
  * @param fd handle to file/socket/fifo, fram which the data should be received
+ * @param type specify whether received data is from socket or file/fifo
  * @param buffer data buffer for storing the received data
  * @return negative value if there was an error and zero if success
  */
-DltReturnValue dlt_receiver_init_unix_socket(DltReceiver *receiver, int fd, char **buffer);
+DltReturnValue dlt_receiver_init_global_buffer(DltReceiver *receiver, int fd, DltReceiverType type, char **buffer);
 /**
  * De-Initialize a dlt receiver structure
  * @param receiver pointer to dlt receiver structure
  * @return negative value if there was an error and zero if success
  */
-DltReturnValue dlt_receiver_free_unix_socket(DltReceiver *receiver);
+DltReturnValue dlt_receiver_free_global_buffer(DltReceiver *receiver);
 /**
  * Receive data from socket or file/fifo using the dlt receiver structure
  * @param receiver pointer to dlt receiver structure
- * @param from_src specify whether received data is from socket or file/fifo
  * @return number of received bytes or negative value if there was an error
  */
-int dlt_receiver_receive(DltReceiver *receiver, DltReceiverType from_src);
+int dlt_receiver_receive(DltReceiver *receiver);
 /**
  * Remove a specific size of bytes from the received data
  * @param receiver pointer to dlt receiver structure
@@ -1466,7 +1506,17 @@ void dlt_get_minor_version(char *buf, size_t size);
 /*                                                          */
 
 /**
- * Common part of initialisation
+ * Common part of initialisation. Evaluates the following environment variables
+ * and stores them in dlt_user struct:
+ * - DLT_DISABLE_EXTENDED_HEADER_FOR_NONVERBOSE
+ * - DLT_LOCAL_PRINT_MODE (AUTOMATIC: 0, FORCE_ON: 2, FORCE_OFF: 3)
+ * - DLT_INITIAL_LOG_LEVEL (e.g. APPx:CTXa:6;APPx:CTXb:5)
+ * - DLT_FORCE_BLOCKING
+ * - DLT_USER_BUFFER_MIN
+ * - DLT_USER_BUFFER_MAX
+ * - DLT_USER_BUFFER_STEP
+ * - DLT_LOG_MSG_BUF_LEN
+ * - DLT_DISABLE_INJECTION_MSG_AT_USER
  * @return negative value if there was an error
  */
 DltReturnValue dlt_init_common(void);
@@ -1544,14 +1594,14 @@ DltReturnValue dlt_message_argument_print(DltMessage *msg,
                                           uint8_t **ptr,
                                           int32_t *datalength,
                                           char *text,
-                                          int textlength,
+                                          size_t textlength,
                                           int byteLength,
                                           int verbose);
 
 /**
  * Check environment variables.
  */
-void dlt_check_envvar();
+void dlt_check_envvar(void);
 
 /**
  * Parse the response text and identifying service id and its options.
@@ -1581,15 +1631,28 @@ int16_t dlt_getloginfo_conv_ascii_to_uint16_t(char *rp, int *rp_count);
  */
 int16_t dlt_getloginfo_conv_ascii_to_int16_t(char *rp, int *rp_count);
 
+
 /**
- * Convert get log info from ASCII to ID
+ * Convert get log info from ASCII to string (with '\0' termination)
+ *
+ * @param rp        char
+ * @param rp_count  int
+ * @param wp        char Array needs to be 1 byte larger than len to store '\0'
+ * @param len       int
+ */
+void dlt_getloginfo_conv_ascii_to_string(char *rp, int *rp_count, char *wp, int len);
+
+
+/**
+ * Convert get log info from ASCII to ID (without '\0' termination)
  *
  * @param rp        char
  * @param rp_count  int
  * @param wp        char
  * @param len       int
+ * @return position of last read character in wp
  */
-void dlt_getloginfo_conv_ascii_to_id(char *rp, int *rp_count, char *wp, int len);
+int dlt_getloginfo_conv_ascii_to_id(char *rp, int *rp_count, char *wp, int len);
 
 /**
  * Convert from hex ASCII to binary
@@ -1599,13 +1662,64 @@ void dlt_getloginfo_conv_ascii_to_id(char *rp, int *rp_count, char *wp, int len)
  */
 void dlt_hex_ascii_to_binary(const char *ptr, uint8_t *binary, int *size);
 
-#   ifndef DLT_USE_UNIX_SOCKET_IPC
 /**
- * Create the specified path, recursive if necessary
- * behaves like calling mkdir -p \<dir\> on the console
+ * Helper function to execute the execvp function in a new child process.
+ * @param filename file path to store the stdout of command (NULL if not required)
+ * @param command execution command followed by arguments with NULL-termination
+ * @return negative value if there was an error
  */
-int dlt_mkdir_recursive(const char *dir);
-#   endif
+int dlt_execute_command(char *filename, char *command, ...);
+
+/**
+ * Return the extension of given file name.
+ * @param filename Only file names without prepended path allowed.
+ * @return pointer to extension
+ */
+char *get_filename_ext(const char *filename);
+
+/**
+ * Extract the base name of given file name (without the extension).
+ * @param abs_file_name Absolute path to file name.
+ * @param base_name Base name it is extracted to.
+ * @param base_name_length Base name length.
+ * @return indicating success
+ */
+bool dlt_extract_base_name_without_ext(const char* const abs_file_name, char* base_name, long base_name_len);
+
+/**
+ * Initialize (external) logging facility
+ * @param mode DltLoggingMode, 0 = log to stdout, 1 = log to syslog, 2 = log to file, 3 = log to stderr
+ * @param enable_multiple_logfiles, true if multiple logfiles (incl. size limits) should be use
+ * @param logging_file_size, maximum size in bytes of one logging file
+ * @param logging_files_max_size, maximum size in bytes of all logging files
+ */
+DltReturnValue dlt_log_init_multiple_logfiles_support(DltLoggingMode mode, bool enable_multiple_logfiles, int logging_file_size, int logging_files_max_size);
+
+/**
+ * Initialize (external) logging facility for single logfile.
+ */
+DltReturnValue dlt_log_init_single_logfile();
+
+/**
+ * Initialize (external) logging facility for multiple files logging.
+ */
+DltReturnValue dlt_log_init_multiple_logfiles(int logging_file_size, int logging_files_max_size);
+
+/**
+ * Logs into log files represented by the multiple files buffer.
+ * @param format First element in a specific format that will be logged.
+ * @param ... Further elements in a specific format that will be logged.
+ */
+void dlt_log_multiple_files_write(const char* format, ...);
+
+void dlt_log_free_single_logfile();
+
+void dlt_log_free_multiple_logfiles();
+
+/**
+ * Checks whether (internal) logging in multiple files is active.
+ */
+bool dlt_is_log_in_multiple_files_active();
 
 #   ifdef __cplusplus
 }

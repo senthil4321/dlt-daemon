@@ -28,7 +28,7 @@ The application Id used for the dlt-system process.
 
 ## ShellEnable
 
-Enable the Shell for command line injections. Be careful when you enable this feature. The user can send any kind of shell commands. The commands are executed with the rights of the dlt-system process. Dlt-system is started by default as user genivi.
+Enable the Shell for command line injections. Be careful when you enable this feature. The user can send any kind of shell commands. The commands are executed with the rights of the dlt-system process. Dlt-system is started by default as user covesa.
 
     Default: 0
 
@@ -36,7 +36,7 @@ Enable the Shell for command line injections. Be careful when you enable this fe
 
 ## SyslogEnable
 
-If this option is set to 1, the syslog adapter feature is enabled.
+If this option is set to 1, the syslog adapter feature is enabled. SyslogPort needs to be configured too if Syslog is enabled.
 
     Default: 0
 
@@ -48,7 +48,7 @@ This value defines context id of the syslog adapter.
 
 ## SyslogPort
 
-This value defines the UDP port opened for receiving log messages from syslog.
+This value defines the UDP port opened for receiving log messages from syslog. Configuration for syslog to forward log to this port is necessary. Adding this config `` *.*    @localhost:47111 `` in config file of syslog (usually in /etc/rsyslog.d/50-default.conf) and restart the syslog service by command "sudo systemctl restart rsyslog.service".
 
     Default: 47111
 
@@ -56,7 +56,7 @@ This value defines the UDP port opened for receiving log messages from syslog.
 
 ## JournalEnable
 
-Enable the Systemd Journal Adapter. This feature is only available, when dlt is compiled with the option "WITH_SYSTEMD_JOURNAL".  Dlt-system is started by default as user genivi, see dlt-system.service file. The user genivi must be added to one of the groups 'adm', 'wheel' or 'systemd-journal' to have access to all journal entries.
+Enable the Systemd Journal Adapter. This feature is only available, when dlt is compiled with the option "WITH_SYSTEMD_JOURNAL".  Dlt-system is started by default as user covesa, see dlt-system.service file. The user covesa must be added to one of the groups 'adm', 'wheel' or 'systemd-journal' to have access to all journal entries.
 
     Default: 0
 
@@ -93,6 +93,17 @@ Map journal log levels to DLT log levels.
 
     Default: 1
 
+## JournalUseOriginalTimestamp
+
+Use the original timestamp (uptime when the event actually occured) as DLT timestamp.
+
+    Default: 1
+
+## JournalUseUptimeOnly
+
+Ignore the timestamp, show uptime (when the event actually occured) only in payload.
+
+    Default: 0
 
 # FILETRANSFER OPTIONS
 
@@ -113,12 +124,6 @@ The Context Id of the filetransfer.
 Time in seconds after startup of dlt-system when first file is transfered.
 
     Default: 0
-
-## FiletransferTimeDelay
-
-Time in seconds to wait between deletion of transferred file and start of next file transfer.
-
-    Default: 10
 
 ## FiletransferTimeoutBetweenLogs
 
@@ -210,7 +215,7 @@ Copyright (C) 2015 BMW AG. License MPL-2.0: Mozilla Public License version 2.0 <
 
 # BUGS
 
-See Github issue: <https://github.com/GENIVI/dlt-daemon/issues>
+See Github issue: <https://github.com/COVESA/dlt-daemon/issues>
 
 # SEE ALSO
 

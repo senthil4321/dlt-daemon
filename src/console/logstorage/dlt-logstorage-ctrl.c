@@ -2,7 +2,7 @@
  * Copyright (C) 2013 - 2015  Advanced Driver Information Technology.
  * This code is developed by Advanced Driver Information Technology.
  * Copyright of Advanced Driver Information Technology, Bosch and DENSO. *
- * This file is part of GENIVI Project Dlt - Diagnostic Log and Trace console apps.
+ * This file is part of COVESA Project Dlt - Diagnostic Log and Trace console apps.
  *
  *
  * \copyright
@@ -16,7 +16,7 @@
  * \author Frederic Berat <fberat@de.adit-jv.com> ADIT 2015
  *
  * \file dlt-logstorage-ctrl.c
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 /*******************************************************************************
 **                                                                            **
@@ -166,17 +166,17 @@ static int analyze_response(char *data, void *payload, int len)
 
     snprintf(resp_ok,
              MAX_RESPONSE_LENGTH,
-             "service(%u), ok",
+             "service(%d), ok",
              DLT_SERVICE_ID_OFFLINE_LOGSTORAGE);
 
     snprintf(resp_warning,
              MAX_RESPONSE_LENGTH,
-             "service(%u), warning",
+             "service(%d), warning",
              DLT_SERVICE_ID_OFFLINE_LOGSTORAGE);
 
     snprintf(resp_perm_denied,
              MAX_RESPONSE_LENGTH,
-             "service(%u), perm_denied",
+             "service(%d), perm_denied",
              DLT_SERVICE_ID_OFFLINE_LOGSTORAGE);
 
     if (strncmp(data, resp_ok, strlen(resp_ok)) == 0)
@@ -308,8 +308,8 @@ static int dlt_logstorage_ctrl_setup_event_loop(void)
     while (dlt_control_init(analyze_response, get_ecuid(), get_verbosity()) &&
            !dlt_logstorage_must_exit()) {
         pr_error("Failed to initialize connection with the daemon.\n");
-        pr_error("Retrying to connect in %lds.\n", get_timeout());
-        sleep(get_timeout());
+        pr_error("Retrying to connect in %ds.\n", get_timeout());
+        sleep((unsigned int) get_timeout());
     }
 
     if (dlt_logstorage_must_exit()) {
@@ -370,8 +370,8 @@ static int dlt_logstorage_ctrl_single_request()
     while (dlt_control_init(analyze_response, get_ecuid(), get_verbosity()) &&
            !dlt_logstorage_must_exit()) {
         pr_error("Failed to initialize connection with the daemon.\n");
-        pr_error("Retrying to connect in %lds.\n", get_timeout());
-        sleep(get_timeout());
+        pr_error("Retrying to connect in %ds.\n", get_timeout());
+        sleep( (unsigned int) get_timeout());
     }
 
     pr_verbose("event type is [%d]\t device path is [%s]\n",
@@ -406,19 +406,25 @@ static void usage(void)
     printf("                             Don't use -s together with -d and -c\n");
     printf("  -t                         Specify connection timeout (Default: %ds)\n",
            DLT_CTRL_TIMEOUT);
+    printf("  -S --send-header           Send message with serial header (Default: Without serial header)\n");
+    printf("  -R --resync-header         Enable resync serial header\n");
     printf("  -v --verbose               Set verbose flag (Default:%d)\n", get_verbosity());
+    printf("  -C filename                DLT daemon configuration file (Default: " CONFIGURATION_FILES_DIR
+           "/dlt.conf)\n");
 }
 
 static struct option long_options[] = {
-    { "command", required_argument, 0, 'c' },
-    { "daemonize", optional_argument, 0, 'd' },
-    { "ecuid", required_argument, 0, 'e' },
-    { "help", no_argument, 0, 'h' },
-    { "path", required_argument, 0, 'p' },
-    { "snapshot", optional_argument, 0, 's' },
-    { "timeout", required_argument, 0, 't' },
-    { "verbose", no_argument, 0, 'v' },
-    { 0, 0, 0, 0 }
+    {"command",       required_argument,  0,  'c'},
+    {"daemonize",     optional_argument,  0,  'd'},
+    {"ecuid",         required_argument,  0,  'e'},
+    {"help",          no_argument,        0,  'h'},
+    {"path",          required_argument,  0,  'p'},
+    {"snapshot",      optional_argument,  0,  's'},
+    {"timeout",       required_argument,  0,  't'},
+    {"send-header",   no_argument,        0,  'S'},
+    {"resync-header", no_argument,        0,  'R'},
+    {"verbose",       no_argument,        0,  'v'},
+    {0,               0,                  0,  0}
 };
 
 /** @brief Parses the application arguments
@@ -437,7 +443,7 @@ static int parse_args(int argc, char *argv[])
 
     while ((c = getopt_long(argc,
                             argv,
-                            ":s::t:he:p:d::c:v",
+                            ":s::t:hSRe:p:d::c:vC:",
                             long_options,
                             &long_index)) != -1)
         switch (c) {
@@ -452,8 +458,19 @@ static int parse_args(int argc, char *argv[])
             set_default_path(optarg);
             break;
         case 't':
-            set_timeout(strtol(optarg, NULL, 10));
+            if (optarg != NULL)
+                set_timeout((int) strtol(optarg, NULL, 10));
             break;
+        case 'S':
+        {
+            set_send_serial_header(1);
+            break;
+        }
+        case 'R':
+        {
+            set_resync_serial_header(1);
+            break;
+        }
         case 'h':
             usage();
             return -1;
@@ -467,7 +484,7 @@ static int parse_args(int argc, char *argv[])
             break;
         case 'p':
 
-            if (strlen(optarg) >= DLT_MOUNT_PATH_MAX) {
+            if ((optarg != NULL) && (strlen(optarg) >= DLT_MOUNT_PATH_MAX)) {
                 pr_error("Mount path '%s' too long\n", optarg);
                 return -1;
             }
@@ -475,11 +492,16 @@ static int parse_args(int argc, char *argv[])
             set_default_path(optarg);
             break;
         case 'c':
-            set_default_event_type(strtol(optarg, NULL, 10));
+            if (optarg != NULL)
+                set_default_event_type(strtol(optarg, NULL, 10));
             break;
         case 'v':
             set_verbosity(1);
             pr_verbose("Now in verbose mode.\n");
+            break;
+        case 'C':
+            set_conf(optarg);
+            pr_verbose("Set %s to read options\n", optarg);
             break;
         case ':':
             pr_error("Option -%c requires an argument.\n", optopt);
@@ -507,6 +529,10 @@ static int parse_args(int argc, char *argv[])
         return -1;
     }
 
+    /* Retrieve ECUID from dlt.conf */
+    if (get_ecuid() == NULL)
+        set_ecuid(NULL);
+
     return 0;
 }
 
@@ -533,8 +559,9 @@ int main(int argc, char *argv[])
 {
     int ret = 0;
 
-    set_ecuid(NULL);
     set_timeout(DLT_CTRL_TIMEOUT);
+    set_send_serial_header(0);
+    set_resync_serial_header(0);
 
     /* Get command line arguments */
     if (parse_args(argc, argv) != 0)

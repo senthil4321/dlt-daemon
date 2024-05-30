@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -120,21 +120,10 @@ void usage()
     printf("  -v            Verbose mode\n");
     printf("  -c            Count number of messages\n");
     printf("  -f filename   Enable filtering of messages\n");
-    printf("  -b number     First messages to be handled\n");
-    printf("  -e number     Last message to be handled\n");
+    printf("  -b number     First <number> messages to be handled\n");
+    printf("  -e number     Last <number> messages to be handled\n");
     printf("  -w            Follow dlt file while file is increasing\n");
     printf("  -t            Handling input compressed files (tar.gz)\n");
-}
-
-char *get_filename_ext(const char *filename)
-{
-    if (filename == NULL)
-            fprintf(stderr, "ERROR: %s: invalid arguments\n", __FUNCTION__);
-
-    char *dot = strrchr(filename, '.');
-    if(!dot || dot == filename)
-        return "";
-    return dot + 1;
 }
 
 void empty_dir(const char *dir)
@@ -145,12 +134,14 @@ void empty_dir(const char *dir)
     char tmp_filename[FILENAME_SIZE] = { 0 };
     uint32_t i;
 
-    if (dir == NULL)
+    if (dir == NULL) {
         fprintf(stderr, "ERROR: %s: invalid arguments\n", __FUNCTION__);
+        return;
+    }
 
     if (stat(dir, &st) == 0) {
         if (S_ISDIR(st.st_mode)) {
-            n = scandir(dir, &files, NULL, alphasort);
+            n = (uint32_t) scandir(dir, &files, NULL, alphasort);
 
             /* Do not include /. and /.. */
             if (n < 2)
@@ -216,9 +207,9 @@ int main(int argc, char *argv[])
     char text[DLT_CONVERT_TEXTBUFSIZE] = { 0 };
 
     /* For handling compressed files */
-    char command[COMMAND_SIZE] = { 0 };
     char tmp_filename[FILENAME_SIZE] = { 0 };
-    struct stat st = { 0 };
+    struct stat st;
+    memset(&st, 0, sizeof(struct stat));
     struct dirent **files = { 0 };
     int n = 0;
     int i = 0;
@@ -359,22 +350,22 @@ int main(int argc, char *argv[])
         }
 
         for (index = optind; index < argc; index++) {
-            memset(command, 0, COMMAND_SIZE);
-
             /* Check extension of input file
              * If it is a compressed file, uncompress it
              */
-            if (strcmp(get_filename_ext(argv[index]), DLT_EXTENSION) != 0)
-                snprintf(command, COMMAND_SIZE, "tar xf %s -C %s",
-                        argv[index], DLT_CONVERT_WS);
-            else
-                snprintf(command, COMMAND_SIZE, "cp %s %s",
-                        argv[index], DLT_CONVERT_WS);
+            if (strcmp(get_filename_ext(argv[index]), DLT_EXTENSION) != 0) {
+                syserr = dlt_execute_command(NULL, "tar", "xf", argv[index], "-C", DLT_CONVERT_WS, NULL);
+                if (syserr != 0)
+                    fprintf(stderr, "ERROR: Failed to uncompress %s to %s with error [%d]\n",
+                            argv[index], DLT_CONVERT_WS, WIFEXITED(syserr));
+            }
+            else {
+                syserr = dlt_execute_command(NULL, "cp", argv[index], DLT_CONVERT_WS, NULL);
+                if (syserr != 0)
+                    fprintf(stderr, "ERROR: Failed to copy %s to %s with error [%d]\n",
+                            argv[index], DLT_CONVERT_WS, WIFEXITED(syserr));
+            }
 
-            syserr = system(command);
-            if (syserr != 0)
-                fprintf(stderr, "ERROR: Failed to execute command [%s] with error [%d]\n",
-                        command, syserr);
         }
 
         n = scandir(DLT_CONVERT_WS, &files, NULL, alphasort);
@@ -433,31 +424,37 @@ int main(int argc, char *argv[])
             }
 
             for (num = begin; num <= end; num++) {
-                dlt_file_message(&file, num, vflag);
+                if (dlt_file_message(&file, num, vflag) < DLT_RETURN_OK)
+                    continue;
 
                 if (xflag) {
                     printf("%d ", num);
-                    dlt_message_print_hex(&(file.msg), text, DLT_CONVERT_TEXTBUFSIZE, vflag);
+                    if (dlt_message_print_hex(&(file.msg), text, DLT_CONVERT_TEXTBUFSIZE, vflag) < DLT_RETURN_OK)
+                        continue;
                 }
                 else if (aflag) {
                     printf("%d ", num);
 
-                    dlt_message_header(&(file.msg), text, DLT_CONVERT_TEXTBUFSIZE, vflag);
+                    if (dlt_message_header(&(file.msg), text, DLT_CONVERT_TEXTBUFSIZE, vflag) < DLT_RETURN_OK)
+                        continue;
 
                     printf("%s ", text);
 
-                    dlt_message_payload(&file.msg, text, DLT_CONVERT_TEXTBUFSIZE, DLT_OUTPUT_ASCII, vflag);
+                    if (dlt_message_payload(&file.msg, text, DLT_CONVERT_TEXTBUFSIZE, DLT_OUTPUT_ASCII, vflag) < DLT_RETURN_OK)
+                        continue;
 
                     printf("[%s]\n", text);
                 }
                 else if (mflag) {
                     printf("%d ", num);
-                    dlt_message_print_mixed_plain(&(file.msg), text, DLT_CONVERT_TEXTBUFSIZE, vflag);
+                    if (dlt_message_print_mixed_plain(&(file.msg), text, DLT_CONVERT_TEXTBUFSIZE, vflag) < DLT_RETURN_OK)
+                        continue;
                 }
                 else if (sflag) {
                     printf("%d ", num);
 
-                    dlt_message_header(&(file.msg), text, DLT_CONVERT_TEXTBUFSIZE, vflag);
+                    if (dlt_message_header(&(file.msg), text, DLT_CONVERT_TEXTBUFSIZE, vflag) < DLT_RETURN_OK)
+                        continue;
 
                     printf("%s \n", text);
                 }
@@ -465,18 +462,15 @@ int main(int argc, char *argv[])
                 /* if file output enabled write message */
                 if (ovalue) {
                     iov[0].iov_base = file.msg.headerbuffer;
-                    iov[0].iov_len = file.msg.headersize;
+                    iov[0].iov_len = (uint32_t) file.msg.headersize;
                     iov[1].iov_base = file.msg.databuffer;
-                    iov[1].iov_len = file.msg.datasize;
+                    iov[1].iov_len = (uint32_t) file.msg.datasize;
 
-                    bytes_written = writev(ohandle, iov, 2);
+                    bytes_written =(int) writev(ohandle, iov, 2);
 
                     if (0 > bytes_written) {
                         printf("in main: writev(ohandle, iov, 2); returned an error!");
-
-                        if (ovalue)
-                            close(ohandle);
-
+                        close(ohandle);
                         dlt_file_free(&file, vflag);
                         return -1;
                     }

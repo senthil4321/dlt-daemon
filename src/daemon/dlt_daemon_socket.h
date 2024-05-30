@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -65,7 +65,12 @@ int dlt_daemon_socket_close(int sock);
 
 int dlt_daemon_socket_get_send_qeue_max_size(int sock);
 
-int dlt_daemon_socket_send(int sock, void *data1, int size1, void *data2, int size2, char serialheader);
+int dlt_daemon_socket_send(int sock,
+                           void *data1,
+                           int size1,
+                           void *data2,
+                           int size2,
+                           char serialheader);
 
 /**
  * @brief dlt_daemon_socket_sendreliable - sends data to socket with additional checks and resending functionality - trying to be reliable

@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -41,7 +41,7 @@ int num_repetitions;
 int main(int argc, char **argv)
 {
     if (argc > 1)
-        num_repetitions = strtol(argv[1], 0, 10);
+        num_repetitions = (int) strtol(argv[1], 0, 10);
     else
         num_repetitions = 1000;
 
@@ -97,7 +97,10 @@ void do_example_test()
 void do_dlt_test()
 {
     for (int i = 0; i < num_repetitions; i++) {
-        dlt_init();
+        if (dlt_init() < DLT_RETURN_OK) {
+            printf("%s Failed to initialise dlt\n", __FUNCTION__);
+            return;
+        }
         dlt_free();
 
         printf("Iteration %d) - currently used memory amount: ", i);
@@ -113,7 +116,7 @@ void exec(const char *cmd, char *buffer, size_t length)
     if ((pipe = popen(cmd, "r")) == NULL)
         return;
 
-    while (fgets(buffer, length, pipe) != NULL);
+    while (fgets(buffer, (int) length, pipe) != NULL);
 
     if (pipe != NULL)
         pclose(pipe);

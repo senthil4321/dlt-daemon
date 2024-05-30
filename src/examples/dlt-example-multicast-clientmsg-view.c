@@ -2,11 +2,11 @@
  * Copyright (c) 2019 LG Electronics Inc.
  * SPDX-License-Identifier: MPL-2.0
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -164,7 +164,9 @@ int main()
     if (dlt_message_init(&msg, 0) == DLT_RETURN_ERROR)
         return DLT_RETURN_ERROR;
 
-    if (dlt_receiver_init(&(clientinfo.receiver), clientinfo.fd,
+    if (dlt_receiver_init(&(clientinfo.receiver),
+                          clientinfo.fd,
+                          DLT_RECEIVE_UDP_SOCKET,
                           DLT_RECEIVE_BUFSIZE) != DLT_RETURN_OK)
         return DLT_RETURN_ERROR;
 

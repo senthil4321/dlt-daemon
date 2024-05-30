@@ -3,14 +3,14 @@
 #
 # Copyright (C) 2015, ADIT GmbH
 #
-# This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+# This file is part of COVESA Project DLT - Diagnostic Log and Trace.
 #
 # This Source Code Form is subject to the terms of the
 # Mozilla Public License (MPL), v. 2.0.
 # If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# For further information see http://www.genivi.org/.
+# For further information see http://www.covesa.org/.
 #######
 add_definitions(-Werror)
 
@@ -36,7 +36,7 @@ add_executable(dlt-logstorage-ctrl
                ${dlt-logstorage-ctrl_SRCS}
                ${dlt_control_common_SRCS})
 
-target_link_libraries(dlt-logstorage-ctrl dlt ${LOGSTORAGE_LIBRARY})
+target_link_libraries(dlt-logstorage-ctrl dlt ${LOGSTORAGE_LIBRARY} dlt_control_common_lib)
 set_target_properties(dlt-logstorage-ctrl PROPERTIES LINKER_LANGUAGE C)
 
 install(TARGETS dlt-logstorage-ctrl

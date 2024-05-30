@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -68,6 +68,7 @@
 #include <ctype.h>      /* for isprint() */
 #include <stdlib.h>     /* for atoi() */
 #include <string.h>     /* for strcmp() */
+#include <fcntl.h>
 #include <sys/uio.h>    /* for writev() */
 
 #include "dlt_client.h"
@@ -96,6 +97,8 @@ typedef struct
     char *evalue;
     int nvalue;
     int bvalue;
+    int sendSerialHeaderFlag;
+    int resyncSerialHeaderFlag;
 
     char ecuid[4];
     int ohandle;
@@ -141,6 +144,8 @@ void usage()
     printf("  -s            Print DLT messages; only headers\n");
     printf("  -v            Verbose mode\n");
     printf("  -h            Usage\n");
+    printf("  -S            Send message with serial header (Default: Without serial header)\n");
+    printf("  -R            Enable resync serial header\n");
     printf("  -y            Serial device mode\n");
     printf("  -b baudrate   Serial device baudrate (Default: 115200)\n");
     printf("  -e ecuid      Set ECU ID (Default: ECU1)\n");
@@ -173,6 +178,8 @@ int main(int argc, char *argv[])
     dltdata.fvalue = 0;
     dltdata.evalue = 0;
     dltdata.bvalue = 0;
+    dltdata.sendSerialHeaderFlag = 0;
+    dltdata.resyncSerialHeaderFlag = 0;
     dltdata.nvalue = 10000;
     dltdata.ohandle = -1;
 
@@ -199,7 +206,7 @@ int main(int argc, char *argv[])
     /* Fetch command line arguments */
     opterr = 0;
 
-    while ((c = getopt (argc, argv, "vashyxmf:o:e:b:n:")) != -1)
+    while ((c = getopt (argc, argv, "vashSRyxmf:o:e:b:n:")) != -1)
         switch (c) {
         case 'v':
         {
@@ -230,6 +237,16 @@ int main(int argc, char *argv[])
         {
             usage();
             return -1;
+        }
+        case 'S':
+        {
+            dltdata.sendSerialHeaderFlag = 1;
+            break;
+        }
+        case 'R':
+        {
+            dltdata.resyncSerialHeaderFlag = 1;
+            break;
         }
         case 'y':
         {
@@ -325,6 +342,10 @@ int main(int argc, char *argv[])
 
         dlt_client_setbaudrate(&dltclient, dltdata.bvalue);
     }
+
+    /* Update the send and resync serial header flags based on command line option */
+    dltclient.send_serial_header = dltdata.sendSerialHeaderFlag;
+    dltclient.resync_serial_header = dltdata.resyncSerialHeaderFlag;
 
     /* initialise structure to use DLT file */
     dlt_file_init(&(dltdata.file), dltdata.vflag);
@@ -520,7 +541,7 @@ int dlt_testclient_message_callback(DltMessage *message, void *data)
             iov[1].iov_base = message->databuffer;
             iov[1].iov_len = message->datasize;
 
-            bytes_written = writev(dltdata->ohandle, iov, 2);
+            bytes_written = (int) writev(dltdata->ohandle, iov, 2);
 
             if (0 > bytes_written) {
                 printf("dlt_testclient_message_callback, error when: writev(dltdata->ohandle, iov, 2) \n");

@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2015  Intel Corporation
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -203,7 +203,7 @@ static inline int32_t logToDltVariadic(DltContextData &log, First const &valueA,
             dlt_user_log_write_finish(&log);\
         }\
     }\
-    while(0)
+    while(false)
 
 /**
  * @brief macro to write a log message with variable number of arguments and without the need to specify the type of log data.
@@ -227,6 +227,6 @@ static inline int32_t logToDltVariadic(DltContextData &log, First const &valueA,
             dlt_user_log_write_finish(&log);\
         }\
   }\
-  while(0)
+  while(false)
 
 #endif /* DLT_CPP_EXTENSION_HPP */

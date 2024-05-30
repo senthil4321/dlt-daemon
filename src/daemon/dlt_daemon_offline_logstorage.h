@@ -15,7 +15,7 @@
  * \author Christoph Lipka <clipka@jp.adit-jv.com> ADIT 2015
  *
  * \file: dlt_daemon_offline_logstorage.h
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*******************************************************************************
@@ -58,8 +58,13 @@
 #define DLT_DAEMON_LOGSTORAGE_RESET_LOGLEVEL            -1
 #define DLT_DAEMON_LOGSTORAGE_RESET_SEND_LOGLEVEL        0
 
-#define DLT_DAEMON_LOGSTORAGE_CMP_APID 1
-#define DLT_DAEMON_LOGSTORAGE_CMP_CTID 2
+typedef enum {
+    DLT_DAEMON_LOGSTORAGE_CMP_MIN = 0,
+    DLT_DAEMON_LOGSTORAGE_CMP_APID = 1,
+    DLT_DAEMON_LOGSTORAGE_CMP_CTID = 2,
+    DLT_DAEMON_LOGSTORAGE_CMP_ECID = 3,
+    DLT_DAEMON_LOGSTORAGE_CMP_MAX,
+} DltCompareFlags;
 
 /**
  * dlt_daemon_logstorage_get_loglevel
@@ -125,8 +130,9 @@ void dlt_daemon_logstorage_update_application_loglevel(DltDaemon *daemon,
  * @param size2         message extended data size
  * @param data3         message data buffer
  * @param size3         message data size
+ * @return              0 on success, -1 on error, 1 on disable network routing
  */
-void dlt_daemon_logstorage_write(DltDaemon *daemon,
+int dlt_daemon_logstorage_write(DltDaemon *daemon,
                                  DltDaemonFlags *user_config,
                                  unsigned char *data1,
                                  int size1,

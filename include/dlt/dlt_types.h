@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -83,6 +83,7 @@ typedef unsigned int speed_t;
  */
 typedef enum
 {
+    DLT_RETURN_FILESZERR = -8,
     DLT_RETURN_LOGGING_DISABLED = -7,
     DLT_RETURN_USER_BUFFER_FULL = -6,
     DLT_RETURN_WRONG_PARAMETER = -5,
@@ -173,10 +174,17 @@ typedef enum
     DLT_USER_MODE_MAX                       /**< maximum value, used for range check */
 } DltUserLogMode;
 
+/**
+ * Definition of Maintain Logstorage Loglevel modes
+ */
+#define DLT_MAINTAIN_LOGSTORAGE_LOGLEVEL_UNDEF -1
+#define DLT_MAINTAIN_LOGSTORAGE_LOGLEVEL_OFF    0
+#define DLT_MAINTAIN_LOGSTORAGE_LOGLEVEL_ON     1
+
 typedef float float32_t;
 typedef double float64_t;
 
-#ifdef DLT_USE_UNIX_SOCKET_IPC
+#if defined DLT_LIB_USE_UNIX_SOCKET_IPC || defined DLT_LIB_USE_VSOCK_IPC
 /**
  * Definition Library connection state
  */

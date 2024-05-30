@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -293,6 +293,10 @@ cdh_status_t list_dircontent_to(const char *p_dirname, FILE *p_fout)
 
         case S_IFLNK:
             l_size = readlink(l_fullpath, l_linkpath, sizeof(l_linkpath));
+            if (l_size < 0) {
+                syslog(LOG_ERR, "ERR Cannot read link '%s' [%s]", l_fullpath, strerror(errno));
+                break;
+            }
             l_linkpath[l_size] = 0;
             fprintf(p_fout, " -> %s\n", l_linkpath);
             break;

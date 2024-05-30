@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -212,6 +212,17 @@ int dlt_user_check_userheader(DltUserHeader *userheader);
 DltReturnValue dlt_user_log_out2(int handle, void *ptr1, size_t len1, void *ptr2, size_t len2);
 
 /**
+ * Atomic write to file descriptor, using vector of 2 elements  with a timeout of 1s
+ * @param handle file descriptor
+ * @param ptr1 generic pointer to first segment of data to be written
+ * @param len1 length of first segment of data to be written
+ * @param ptr2 generic pointer to second segment of data to be written
+ * @param len2 length of second segment of data to be written
+ * @return Value from DltReturnValue enum
+ */
+DltReturnValue dlt_user_log_out2_with_timeout(int handle, void *ptr1, size_t len1, void *ptr2, size_t len2);
+
+/**
  * Atomic write to file descriptor, using vector of 3 elements
  * @param handle file descriptor
  * @param ptr1 generic pointer to first segment of data to be written
@@ -223,5 +234,19 @@ DltReturnValue dlt_user_log_out2(int handle, void *ptr1, size_t len1, void *ptr2
  * @return Value from DltReturnValue enum
  */
 DltReturnValue dlt_user_log_out3(int handle, void *ptr1, size_t len1, void *ptr2, size_t len2, void *ptr3, size_t len3);
+
+/**
+ * Atomic write to file descriptor, using vector of 3 elements with a timeout of 1s
+ * @param handle file descriptor
+ * @param ptr1 generic pointer to first segment of data to be written
+ * @param len1 length of first segment of data to be written
+ * @param ptr2 generic pointer to second segment of data to be written
+ * @param len2 length of second segment of data to be written
+ * @param ptr3 generic pointer to third segment of data to be written
+ * @param len3 length of third segment of data to be written
+ * @return Value from DltReturnValue enum
+ */
+DltReturnValue dlt_user_log_out3_with_timeout(int handle, void *ptr1, size_t len1, void *ptr2, size_t len2, void *ptr3, size_t len3);
+
 
 #endif /* DLT_USER_SHARED_H */

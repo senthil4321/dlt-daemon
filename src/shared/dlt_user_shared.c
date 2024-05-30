@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -71,6 +71,7 @@
 #include <errno.h>
 
 #include <sys/uio.h> /* writev() */
+#include <sys/time.h> /* timeval */
 
 #include "dlt_user_shared.h"
 #include "dlt_user_shared_cfg.h"
@@ -108,7 +109,7 @@ DltReturnValue dlt_user_log_out2(int handle, void *ptr1, size_t len1, void *ptr2
     struct iovec iov[2];
     uint32_t bytes_written;
 
-    if (handle <= 0)
+    if (handle < 0)
         /* Invalid handle */
         return DLT_RETURN_ERROR;
 
@@ -117,7 +118,7 @@ DltReturnValue dlt_user_log_out2(int handle, void *ptr1, size_t len1, void *ptr2
     iov[1].iov_base = ptr2;
     iov[1].iov_len = len2;
 
-    bytes_written = writev(handle, iov, 2);
+    bytes_written = (uint32_t) writev(handle, iov, 2);
 
     if (bytes_written != (len1 + len2))
         return DLT_RETURN_ERROR;
@@ -125,12 +126,34 @@ DltReturnValue dlt_user_log_out2(int handle, void *ptr1, size_t len1, void *ptr2
     return DLT_RETURN_OK;
 }
 
+DltReturnValue dlt_user_log_out2_with_timeout(int handle, void *ptr1, size_t len1, void *ptr2, size_t len2)
+{
+    if (handle < 0)
+        /* Invalid handle */
+        return DLT_RETURN_ERROR;
+
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(handle, &fds);
+
+    struct timeval tv = { DLT_WRITEV_TIMEOUT_SEC, DLT_WRITEV_TIMEOUT_USEC };
+    if (select(handle+1, NULL, &fds, NULL, &tv) < 0) {
+        return DLT_RETURN_ERROR;
+    }
+
+    if (FD_ISSET(handle, &fds)) {
+        return dlt_user_log_out2(handle, ptr1, len1, ptr2, len2);
+    } else {
+        return DLT_RETURN_ERROR;
+    }
+}
+
 DltReturnValue dlt_user_log_out3(int handle, void *ptr1, size_t len1, void *ptr2, size_t len2, void *ptr3, size_t len3)
 {
     struct iovec iov[3];
     uint32_t bytes_written;
 
-    if (handle <= 0)
+    if (handle < 0)
         /* Invalid handle */
         return DLT_RETURN_ERROR;
 
@@ -141,10 +164,15 @@ DltReturnValue dlt_user_log_out3(int handle, void *ptr1, size_t len1, void *ptr2
     iov[2].iov_base = ptr3;
     iov[2].iov_len = len3;
 
-    bytes_written = writev(handle, iov, 3);
+    bytes_written = (uint32_t) writev(handle, iov, 3);
 
     if (bytes_written != (len1 + len2 + len3)) {
         switch (errno) {
+        case ETIMEDOUT:
+        {
+            return DLT_RETURN_PIPE_ERROR;     /* ETIMEDOUT - connect timeout */
+            break;
+        }
         case EBADF:
         {
             return DLT_RETURN_PIPE_ERROR;     /* EBADF - handle not open */
@@ -170,4 +198,26 @@ DltReturnValue dlt_user_log_out3(int handle, void *ptr1, size_t len1, void *ptr2
     }
 
     return DLT_RETURN_OK;
+}
+
+DltReturnValue dlt_user_log_out3_with_timeout(int handle, void *ptr1, size_t len1, void *ptr2, size_t len2, void *ptr3, size_t len3)
+{
+    if (handle < 0)
+        /* Invalid handle */
+        return DLT_RETURN_ERROR;
+
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(handle, &fds);
+
+    struct timeval tv = { DLT_WRITEV_TIMEOUT_SEC, DLT_WRITEV_TIMEOUT_USEC };
+    if (select(handle+1, NULL, &fds, NULL, &tv) < 0) {
+        return DLT_RETURN_ERROR;
+    }
+
+    if (FD_ISSET(handle, &fds)) {
+        return dlt_user_log_out3(handle, ptr1, len1, ptr2, len2, ptr3, len3);
+    } else {
+        return DLT_RETURN_ERROR;
+    }
 }

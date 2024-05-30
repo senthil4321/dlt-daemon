@@ -6,14 +6,14 @@
 # This code is developed by Advanced Driver Information Technology.
 # Copyright of Advanced Driver Information Technology, Bosch and DENSO.
 #
-# This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+# This file is part of COVESA Project DLT - Diagnostic Log and Trace.
 #
 # This Source Code Form is subject to the terms of the
 # Mozilla Public License (MPL), v. 2.0.
 # If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# For further information see http://www.genivi.org/.
+# For further information see http://www.covesa.org/.
 ################################################################################
 
 ################################################################################
@@ -38,6 +38,21 @@ ipaddr=127.0.0.1
 getOSname()
 {
     OS="`uname`"
+}
+
+################################################################################
+# Function:    -getDltDaemonPath()
+#
+# Description  -Retrieves path to dlt-daemon
+#
+getDltDaemonPath()
+{
+    if [ -z "${DLT_UT_DAEMON_PATH}" ]; then
+        echo "WARNNG: env variable DLT_UT_DAEMON_PATH is not set"
+        DLT_DAEMON=`which dlt-daemon`
+    else
+        DLT_DAEMON="${DLT_UT_DAEMON_PATH}"
+    fi
 }
 
 ################################################################################
@@ -92,10 +107,11 @@ cleanup()
 
     cd $tmpPath
 
-    PIDOF dlt-daemon
+    BASE=`basename $DLT_DAEMON`
+    PIDOF $BASE
     if [ $? -eq '0' ]
     then
-        KILLALL dlt-daemon
+        KILLALL $BASE
         if [ $? -eq '1' ]
         then
             echo "Failed to kill daemons"
@@ -161,7 +177,13 @@ setupTest()
     fi
 
     echo "[PassiveNode1]" >>$tmpPath/dlt_gateway.conf
-    echo "IPaddress=$ipaddr">>$tmpPath/dlt_gateway.conf
+
+    if [ -n "$DLT_IPv6_LO" ]
+    then
+        echo "IPaddress=$DLT_IPv6_LO">>$tmpPath/dlt_gateway.conf
+    else
+        echo "IPaddress=$ipaddr">>$tmpPath/dlt_gateway.conf
+    fi
     echo "Port=3490" >>$tmpPath/dlt_gateway.conf
     echo "EcuID=ECU1" >>$tmpPath/dlt_gateway.conf
     echo "Connect=OnStartup" >>$tmpPath/dlt_gateway.conf
@@ -169,8 +191,10 @@ setupTest()
     echo "SendControl=0x03,0x13" >>$tmpPath/dlt_gateway.conf
     echo "SendSerialHeader=0" >>$tmpPath/dlt_gateway.conf
     echo "NOFiles=1" >>$tmpPath/dlt_gateway.conf
+
     return 0
 }
+
 #
 # Function:     -startDaemons()
 #
@@ -184,7 +208,7 @@ startDaemons()
 {
     DLT_PASSIVE_SHM_NAME=""
     tmpPath=/tmp
-    dlt-daemon -d
+    dlt-daemon -d -c $DLT_UT_CONFIG_PATH
     sleep 1
 
     # Check if the dlt shm file exist (DLT_SHM_ENABLE=ON)
@@ -203,16 +227,17 @@ startDaemons()
 #
 checkDaemonStart()
 {
+    BASE=`basename $DLT_DAEMON`
     if [ "$OS" = "QNX" ]; then
-        slay -p dlt-daemon > /dev/null
+        slay -p $BASE > /dev/null
         total=$?
     else
-        total=`pgrep -c dlt-daemon`
+        total=`pgrep -cx $BASE`
     fi
 
     if [ $total -ne '2' ]; then
         echo "Initialization of dlt-daemon instances failed"
-        exit
+        exit 1
     fi
 }
 
@@ -231,6 +256,8 @@ executeTests()
 ########################################################################################
 
 getOSname
+
+getDltDaemonPath
 
 echo "Cleaning up dlt-daemon instances"
 cleanup

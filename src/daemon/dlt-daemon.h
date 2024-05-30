@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -69,6 +69,7 @@
 
 #include <limits.h> /* for NAME_MAX */
 #include <sys/time.h>
+#include <stdarg.h>
 
 #include "dlt_daemon_common.h"
 #include "dlt_user_shared.h"
@@ -98,17 +99,24 @@ typedef struct
     char yvalue[NAME_MAX + 1];   /**< (String: Devicename) Additional support for serial device */
     char ivalue[NAME_MAX + 1];   /**< (String: Directory) Directory where to store the persistant configuration (Default: /tmp) */
     char cvalue[NAME_MAX + 1];   /**< (String: Directory) Filename of DLT configuration file (Default: /etc/dlt.conf) */
+#ifdef DLT_LOG_LEVEL_APP_CONFIG
+    char avalue[NAME_MAX + 1];    /**< (String: Directory) Filename of the app id default level config (Default: /etc/dlt-log-levels.conf) */
+#endif
     int sharedMemorySize;        /**< (int) Size of shared memory (Default: 100000) */
     int sendMessageTime;        /**< (Boolean) Send periodic Message Time if client is connected (Default: 0) */
     char offlineTraceDirectory[DLT_DAEMON_FLAG_MAX]; /**< (String: Directory) Store DLT messages to local directory (Default: /etc/dlt.conf) */
     int offlineTraceFileSize;     /**< (int) Maximum size in bytes of one trace file (Default: 1000000) */
     int offlineTraceMaxSize;     /**< (int) Maximum size of all trace files (Default: 4000000) */
-    int offlineTraceFilenameTimestampBased;  /**< (int) timestamp based or index based (Default: 1 Timestamp based) */
-    int loggingMode;     /**< (int) The logging console for internal logging of dlt-daemon (Default: 0) */
+    bool offlineTraceFilenameTimestampBased;  /**< (Boolean) timestamp based or index based (Default: true=Timestamp based) */
+    DltLoggingMode loggingMode;     /**< (int) The logging console for internal logging of dlt-daemon (Default: 0) */
     int loggingLevel;     /**< (int) The logging level for internal logging of dlt-daemon (Default: 6) */
     char loggingFilename[DLT_DAEMON_FLAG_MAX]; /**< (String: Filename) The logging filename if internal logging mode is log to file (Default: /tmp/log) */
+    bool enableLoggingFileLimit;     /**< (Boolean) Indicate whether size of logging file(s) is limited (Default: false) */
+    int loggingFileSize;         /**< (int) Maximum size in bytes of one logging file (Default: 250000) */
+    int loggingFileMaxSize;      /**< (int) Maximum size in bytes of all logging files (Default: 1000000) */
     int sendECUSoftwareVersion;  /**< (Boolean) Send ECU software version perdiodically */
     char pathToECUSoftwareVersion[DLT_DAEMON_FLAG_MAX]; /**< (String: Filename) The file from which to read the ECU version from. */
+    char ecuSoftwareVersionFileField[DLT_DAEMON_FLAG_MAX]; /**< Reads a specific VALUE from a FIELD=VALUE ECU version file. */
     int sendTimezone;  /**< (Boolean) Send Timezone perdiodically */
     int offlineLogstorageMaxDevices;  /**< (int) Maximum devices to be used as offline logstorage devices */
     char offlineLogstorageDirPath[DLT_MOUNT_PATH_MAX]; /**< (String: Directory) DIR path to store offline logs  */
@@ -116,10 +124,11 @@ typedef struct
     char offlineLogstorageDelimiter; /**< (char) Append delimeter character in offline logstorage filename  */
     unsigned int offlineLogstorageMaxCounter; /**< (int) Maximum offline logstorage file counter index until wraparound  */
     unsigned int offlineLogstorageMaxCounterIdx; /**< (int) String len of  offlineLogstorageMaxCounter*/
-    unsigned int offlineLogstorageCacheSize; /**< Max cache size offline logstorage cache */
-#ifdef DLT_USE_UNIX_SOCKET_IPC
+    unsigned int offlineLogstorageCacheSize;            /**< (int) Max cache size offline logstorage cache */
+    int offlineLogstorageOptionalCounter;               /**< (Boolean) Do not append index to filename if NOFiles=1 */
+#ifdef DLT_DAEMON_USE_UNIX_SOCKET_IPC
     char appSockPath[DLT_DAEMON_FLAG_MAX]; /**< Path to User socket */
-#else
+#else /* DLT_DAEMON_USE_FIFO_IPC */
     char userPipesDir[DLT_PATH_MAX]; /**< (String: Directory) directory where dltpipes reside (Default: /tmp/dltpipes) */
     char daemonFifoName[DLT_PATH_MAX]; /**< (String: Filename) name of local fifo (Default: /tmp/dlt) */
     char daemonFifoGroup[DLT_PATH_MAX]; /**< (String: Group name) Owner group of local fifo (Default: Primary Group) */
@@ -135,7 +144,8 @@ typedef struct
     int contextLogLevel;  /**< (int) log level sent to context if registered with default log-level or if enforced*/
     int contextTraceStatus;   /**< (int) trace status sent to context if registered with default trace status  or if enforced*/
     int enforceContextLLAndTS;  /**< (Boolean) Enforce log-level, trace-status not to exceed contextLogLevel, contextTraceStatus */
-    DltBindAddress_t *ipNodes; /**< (String: BindAddress) The daemon accepts connections only on this list of IP addresses */
+    DltBindAddress_t* ipNodes; /**< (String: BindAddress) The daemon accepts connections only on this list of IP addresses */
+    int injectionMode;  /**< (Boolean) Injection mode */
 } DltDaemonFlags;
 /**
  * The global parameters of a dlt daemon.
@@ -153,7 +163,8 @@ typedef struct
     DltShm dlt_shm;                /**< Shared memory handling */
     unsigned char *recv_buf_shm;   /**< buffer for receive message from shm */
 #endif
-    DltOfflineTrace offlineTrace; /**< Offline trace handling */
+    MultipleFilesRingBuffer offlineTrace; /**< Offline trace handling */
+    MultipleFilesRingBuffer dltLogging; /**< Dlt logging handling */
     int timeoutOnSend;
     unsigned long RingbufferMinSize;
     unsigned long RingbufferMaxSize;
@@ -168,8 +179,10 @@ typedef struct
 
 typedef struct
 {
-    int timer_fd;
     unsigned long long wakeups_missed;
+    int period_sec;
+    int starts_in;
+    int timer_id;
 } DltDaemonPeriodicData;
 
 typedef struct
@@ -196,6 +209,10 @@ int dlt_daemon_local_ecu_version_init(DltDaemon *daemon, DltDaemonLocal *daemon_
 void dlt_daemon_daemonize(int verbose);
 void dlt_daemon_exit_trigger();
 void dlt_daemon_signal_handler(int sig);
+#ifdef __QNX__
+void dlt_daemon_cleanup_timers();
+void close_pipes(int fds[2]);
+#endif
 int dlt_daemon_process_client_connect(DltDaemon *daemon, DltDaemonLocal *daemon_local, DltReceiver *recv, int verbose);
 int dlt_daemon_process_client_messages(DltDaemon *daemon, DltDaemonLocal *daemon_local, DltReceiver *revc, int verbose);
 int dlt_daemon_process_client_messages_serial(DltDaemon *daemon,
@@ -208,7 +225,7 @@ int dlt_daemon_process_sixty_s_timer(DltDaemon *daemon, DltDaemonLocal *daemon_l
 int dlt_daemon_process_systemd_timer(DltDaemon *daemon, DltDaemonLocal *daemon_local, DltReceiver *recv, int verbose);
 
 int dlt_daemon_process_control_connect(DltDaemon *daemon, DltDaemonLocal *daemon_local, DltReceiver *recv, int verbose);
-#ifdef DLT_USE_UNIX_SOCKET_IPC
+#if defined DLT_DAEMON_USE_UNIX_SOCKET_IPC || defined DLT_DAEMON_VSOCK_IPC_ENABLE
 int dlt_daemon_process_app_connect(DltDaemon *daemon, DltDaemonLocal *daemon_local, DltReceiver *recv, int verbose);
 #endif
 int dlt_daemon_process_control_messages(DltDaemon *daemon, DltDaemonLocal *daemon_local, DltReceiver *recv,
@@ -242,6 +259,13 @@ int dlt_daemon_process_user_message_log(DltDaemon *daemon,
                                         DltDaemonLocal *daemon_local,
                                         DltReceiver *rec,
                                         int verbose);
+
+bool enforce_context_ll_and_ts_keep_message(DltDaemonLocal *daemon_local
+#ifdef DLT_LOG_LEVEL_APP_CONFIG
+                                            ,DltDaemonApplication *app
+#endif
+                                            );
+
 int dlt_daemon_process_user_message_set_app_ll_ts(DltDaemon *daemon,
                                                   DltDaemonLocal *daemon_local,
                                                   DltReceiver *rec,
@@ -263,4 +287,3 @@ int create_timer_fd(DltDaemonLocal *daemon_local, int period_sec, int starts_in,
 int dlt_daemon_close_socket(int sock, DltDaemon *daemon, DltDaemonLocal *daemon_local, int verbose);
 
 #endif /* DLT_DAEMON_H */
-

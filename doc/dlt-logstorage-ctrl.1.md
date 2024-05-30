@@ -38,6 +38,14 @@ Send a trigger to DLT Daemon to connect/disconnect a certain offline logstorage 
 
 :    Specify connection timeout. Default is: 10s.
 
+-S
+
+:   Send message with serial header (Default: Without serial header)
+
+-R
+
+:   Enable resync serial header
+
 # EXAMPLES
 
 Activate the offline logstorage device mounted on /mnt/dltlog
@@ -63,7 +71,7 @@ Copyright (C) 2015 Advanced Driver Information Technology, Bosch and DENSO. Lice
 
 # BUGS
 
-See Github issue: <https://github.com/GENIVI/dlt-daemon/issues>
+See Github issue: <https://github.com/COVESA/dlt-daemon/issues>
 
 # SEE ALSO
 

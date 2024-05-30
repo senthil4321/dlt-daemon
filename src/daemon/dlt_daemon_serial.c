@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -66,24 +66,33 @@
 
 #include "dlt_daemon_serial.h"
 
-int dlt_daemon_serial_send(int sock, void *data1, int size1, void *data2, int size2, char serialheader)
+int dlt_daemon_serial_send(int sock,
+                           void *data1,
+                           int size1,
+                           void *data2,
+                           int size2,
+                           char serialheader)
 {
     /* Optional: Send serial header, if requested */
-    if (serialheader)
-        if (0 > write(sock, dltSerialHeader, sizeof(dltSerialHeader)))
+    if (serialheader) {
+        if (0 > write(sock, dltSerialHeader, sizeof(dltSerialHeader))) {
             return DLT_DAEMON_ERROR_SEND_FAILED;
+        }
+    }
 
     /* Send data */
 
-    if (data1 && (size1 > 0))
-        if (0 > write(sock, data1, size1))
+    if (data1 && (size1 > 0)) {
+        if (0 > write(sock, data1, size1)) {
             return DLT_DAEMON_ERROR_SEND_FAILED;
+        }
+    }
 
-
-
-    if (data2 && (size2 > 0))
-        if (0 > write(sock, data2, size2))
+    if (data2 && (size2 > 0)) {
+        if (0 > write(sock, data2, size2)) {
             return DLT_DAEMON_ERROR_SEND_FAILED;
+        }
+    }
 
     return DLT_DAEMON_ERROR_OK;
 }

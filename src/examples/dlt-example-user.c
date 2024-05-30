@@ -3,14 +3,14 @@
  *
  * Copyright (C) 2011-2015, BMW AG
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -98,12 +98,15 @@ void usage()
     printf("Options:\n");
     printf("  -d delay      Milliseconds to wait between sending messages (Default: 500)\n");
     printf("  -f filename   Use local log file instead of sending to daemon\n");
+    printf("  -S filesize   Set maximum size of local log file (Default: UINT_MAX)\n");
     printf("  -n count      Number of messages to be generated (Default: 10)\n");
     printf("  -g            Switch to non-verbose mode (Default: verbose mode)\n");
     printf("  -a            Enable local printing of DLT messages (Default: disabled)\n");
     printf("  -k            Send marker message\n");
-    printf("  -m mode       Set log mode 0=off,1=external,2=internal,3=both\n");
+    printf("  -m mode       Set log mode 0=off, 1=external, 2=internal, 3=both\n");
     printf("  -l level      Set log level to <level>, level=-1..6\n");
+    printf("  -C ContextID  Set context ID for send message (Default: TEST)\n");
+    printf("  -A AppID      Set app ID for send message (Default: LOG)\n");
     printf("  -t timeout    Set timeout when sending messages at exit, in ms (Default: 10000 = 10sec)\n");
     printf("  -r size       Send raw data with specified size instead of string\n");
 #ifdef DLT_TEST_ENABLE
@@ -128,6 +131,7 @@ int main(int argc, char *argv[])
 #endif /* DLT_TEST_ENABLE */
     char *dvalue = 0;
     char *fvalue = 0;
+    unsigned int filesize = 0;
     char *nvalue = 0;
     char *mvalue = 0;
     char *message = 0;
@@ -136,6 +140,9 @@ int main(int argc, char *argv[])
     int rvalue = -1;
     int index;
     int c;
+
+    char *appID = "LOG";
+    char *contextID = "TEST";
 
     char *text;
     int num, maxnum;
@@ -147,10 +154,10 @@ int main(int argc, char *argv[])
     opterr = 0;
 #ifdef DLT_TEST_ENABLE
 
-    while ((c = getopt (argc, argv, "vgakcd:f:n:m:z:r:s:l:t:")) != -1)
+    while ((c = getopt (argc, argv, "vgakcd:f:S:n:m:z:r:s:l:t:A:C:")) != -1)
 #else
 
-    while ((c = getopt (argc, argv, "vgakd:f:n:m:l:r:t:")) != -1)
+    while ((c = getopt (argc, argv, "vgakd:f:S:n:m:l:r:t:A:C:")) != -1)
 #endif /* DLT_TEST_ENABLE */
     {
         switch (c) {
@@ -196,6 +203,11 @@ int main(int argc, char *argv[])
             fvalue = optarg;
             break;
         }
+        case 'S':
+        {
+            filesize = atoi(optarg);
+            break;
+        }
         case 'n':
         {
             nvalue = optarg;
@@ -211,6 +223,16 @@ int main(int argc, char *argv[])
             lvalue = atoi(optarg);
             break;
         }
+        case 'A':
+        {
+            appID = optarg;
+            break;
+        }
+        case 'C':
+        {
+            contextID = optarg;
+            break;
+        }
         case 't':
         {
             tvalue = optarg;
@@ -223,7 +245,8 @@ int main(int argc, char *argv[])
         }
         case '?':
         {
-            if ((optopt == 'd') || (optopt == 'f') || (optopt == 'n') || (optopt == 'l') || (optopt == 't'))
+            if ((optopt == 'd') || (optopt == 'f') || (optopt == 'n') ||
+                (optopt == 'l') || (optopt == 't') || (optopt == 'S'))
                 fprintf (stderr, "Option -%c requires an argument.\n", optopt);
             else if (isprint (optopt))
                 fprintf (stderr, "Unknown option `-%c'.\n", optopt);
@@ -264,13 +287,18 @@ int main(int argc, char *argv[])
             return -1;
     }
 
+    if (filesize != 0) {
+        if (dlt_set_filesize_max(filesize) < 0)
+            return -1;
+    }
+
     dlt_with_session_id(1);
     dlt_with_timestamp(1);
     dlt_with_ecu_id(1);
     dlt_verbose_mode();
 
-    DLT_REGISTER_APP("LOG", "Test Application for Logging");
-    DLT_REGISTER_CONTEXT(mycontext1, "TEST", "Test Context for Logging");
+    DLT_REGISTER_APP(appID, "Test Application for Logging");
+    DLT_REGISTER_CONTEXT(mycontext1, contextID, "Test Context for Logging");
     DLT_REGISTER_CONTEXT_LLCCB(mycontext2, "TS1", "Test Context1 for injection", dlt_user_log_level_changed_callback);
     DLT_REGISTER_CONTEXT_LLCCB(mycontext3, "TS2", "Test Context2 for injection", dlt_user_log_level_changed_callback);
 
@@ -292,7 +320,8 @@ int main(int argc, char *argv[])
 
     if (mvalue) {
         printf("Set log mode to %d\n", atoi(mvalue));
-        dlt_set_log_mode(atoi(mvalue));
+        if (dlt_set_log_mode(atoi(mvalue)) == DLT_RETURN_ERROR)
+            printf("Set log mode failed\n");
     }
 
     if (gflag)
@@ -310,9 +339,9 @@ int main(int argc, char *argv[])
         maxnum = 10;
 
     if (dvalue)
-        delay = atoi(dvalue) * 1000000;
+        delay = atoi(dvalue);
     else
-        delay = 500 * 1000000;
+        delay = 500;
 
     if (tvalue)
         dlt_set_resend_timeout_atexit(atoi(tvalue));
@@ -378,8 +407,8 @@ int main(int argc, char *argv[])
         }
 
         if (delay > 0) {
-            ts.tv_sec = delay / 1000000000;
-            ts.tv_nsec = delay % 1000000000;
+            ts.tv_sec = delay / 1000;
+            ts.tv_nsec = (delay % 1000) * 1000000;
             nanosleep(&ts, NULL);
         }
     }
@@ -435,4 +464,3 @@ void dlt_user_log_level_changed_callback(char context_id[DLT_ID_SIZE], uint8_t l
 
     printf("Log level changed of context %s, LogLevel=%u, TraceState=%u \n", text, log_level, trace_status);
 }
-

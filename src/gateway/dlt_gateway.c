@@ -5,14 +5,14 @@
  * This code is developed by Advanced Driver Information Technology.
  * Copyright of Advanced Driver Information Technology, Bosch and DENSO.
  *
- * This file is part of GENIVI Project DLT - Diagnostic Log and Trace.
+ * This file is part of COVESA Project DLT - Diagnostic Log and Trace.
  *
  * This Source Code Form is subject to the terms of the
  * Mozilla Public License (MPL), v. 2.0.
  * If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  *
- * For further information see http://www.genivi.org/.
+ * For further information see http://www.covesa.org/.
  */
 
 /*!
@@ -56,15 +56,19 @@
  */
 DLT_STATIC DltReturnValue dlt_gateway_check_ip(DltGatewayConnection *con, char *value)
 {
-    struct sockaddr_in sa;
-    int ret = DLT_RETURN_ERROR;
-
     if ((con == NULL) || (value == NULL)) {
         dlt_vlog(LOG_ERR, "%s: wrong parameter\n", __func__);
         return DLT_RETURN_WRONG_PARAMETER;
     }
 
+    int ret = DLT_RETURN_ERROR;
+#ifdef DLT_USE_IPv6
+    struct sockaddr_in6 sa6;
+    ret = inet_pton(AF_INET6, value, &(sa6.sin6_addr));
+#else
+    struct sockaddr_in sa;
     ret = inet_pton(AF_INET, value, &(sa.sin_addr));
+#endif
 
     /* valid IP address */
     if (ret != 0) {
@@ -603,9 +607,6 @@ int dlt_gateway_store_connection(DltGateway *gateway,
         i++;
     }
 
-    if (&(gateway->connections[i]) == NULL)
-        return DLT_RETURN_ERROR;
-
     /* store values */
     gateway->connections[i].ip_address = strdup(tmp->ip_address);
     gateway->connections[i].ecuid = strdup(tmp->ecuid);
@@ -669,6 +670,9 @@ int dlt_gateway_configure(DltGateway *gateway, char *config_file, int verbose)
 
     /* read configuration file */
     file = dlt_config_file_init(config_file);
+    if(file == NULL) {
+        return DLT_RETURN_ERROR;
+    }
 
     /* get number of entries and allocate memory to store information */
     ret = dlt_config_file_get_num_sections(file, &num_sections);
@@ -789,6 +793,10 @@ int dlt_gateway_configure(DltGateway *gateway, char *config_file, int verbose)
                              "Configuration %s = %s is invalid.\n"
                              "Using default.\n",
                              configuration_entries[j].key, value);
+            }
+
+            if (!tmp.ip_address) {
+                invalid = 1;
             }
 
             if (invalid) {
@@ -967,11 +975,6 @@ int dlt_gateway_establish_connections(DltGateway *gateway,
     for (i = 0; i < gateway->num_connections; i++) {
         DltGatewayConnection *con = &(gateway->connections[i]);
         DltPassiveControlMessage *control_msg = NULL;
-
-        if (con == NULL) {
-            dlt_log(LOG_CRIT, "Cannot retrieve gateway connection details\n");
-            return DLT_RETURN_ERROR;
-        }
 
         if ((con->status != DLT_GATEWAY_CONNECTED) &&
             (con->trigger != DLT_GATEWAY_ON_DEMAND) &&
@@ -1285,6 +1288,7 @@ DltReturnValue dlt_gateway_process_passive_node_messages(DltDaemon *daemon,
     DltGateway *gateway = NULL;
     DltGatewayConnection *con = NULL;
     DltMessage msg = { 0 };
+    bool b_reset_receiver = false;
 
     if ((daemon == NULL) || (daemon_local == NULL) || (receiver == NULL)) {
         dlt_vlog(LOG_ERR, "%s: wrong parameter\n", __func__);
@@ -1301,12 +1305,10 @@ DltReturnValue dlt_gateway_process_passive_node_messages(DltDaemon *daemon,
     }
 
     for (i = 0; i < gateway->num_connections; i++)
-        if (gateway->connections[i].client.sock == receiver->fd) {
+        if ((gateway->connections[i].status == DLT_GATEWAY_CONNECTED) && (gateway->connections[i].client.sock == receiver->fd)) {
             con = &gateway->connections[i];
             break;
         }
-
-
 
     if (con == NULL) {
         dlt_log(LOG_ERR, "Cannot associate fd to passive Node connection\n");
@@ -1321,7 +1323,7 @@ DltReturnValue dlt_gateway_process_passive_node_messages(DltDaemon *daemon,
     }
 
     /* nearly copy and paste of dlt_client_main_loop function */
-    if (dlt_receiver_receive(receiver, DLT_RECEIVE_SOCKET) <= 0) {
+    if (dlt_receiver_receive(receiver) <= 0) {
         /* No more data to be received */
         if (dlt_message_free(&msg, verbose) < 0) {
             dlt_log(LOG_ERR, "Cannot free DLT message\n");
@@ -1358,14 +1360,15 @@ DltReturnValue dlt_gateway_process_passive_node_messages(DltDaemon *daemon,
              sizeof(DltStandardHeader));
 
         /* only forward messages if the received ECUid is the expected one */
-        if (strncmp(header->ecu, con->ecuid, strlen(con->ecuid)) == 0) {
+        if (strncmp(header->ecu, con->ecuid, DLT_ID_SIZE) == 0) {
             uint32_t id;
             uint32_t id_tmp;
             DltPassiveControlMessage *control_msg = con->p_control_msgs;
 
             dlt_vlog(LOG_DEBUG,
-                     "Received ECUid (%s) similar to configured ECUid(%s). "
+                     "Received ECUid (%.*s) similar to configured ECUid(%s). "
                      "Forwarding message (%s).\n",
+                     DLT_ID_SIZE,
                      header->ecu,
                      con->ecuid,
                      msg.databuffer);
@@ -1428,8 +1431,9 @@ DltReturnValue dlt_gateway_process_passive_node_messages(DltDaemon *daemon,
                                        verbose);
         } else { /* otherwise remove this connection and do not connect again */
             dlt_vlog(LOG_WARNING,
-                     "Received ECUid (%s) differs to configured ECUid(%s). "
+                     "Received ECUid (%.*s) differs to configured ECUid(%s). "
                      "Discard this message.\n",
+                     DLT_ID_SIZE,
                      header->ecu,
                      con->ecuid);
 
@@ -1445,6 +1449,11 @@ DltReturnValue dlt_gateway_process_passive_node_messages(DltDaemon *daemon,
 
             dlt_log(LOG_WARNING,
                     "Disconnect from passive node due to invalid ECUid\n");
+
+            /* it is possible that a partial log was received through the last recv call */
+            /* however, the rest will never be received since the socket will be closed by above method */
+            /* as such, we need to reset the receiver to prevent permanent corruption */
+            b_reset_receiver = true;
         }
 
         if (msg.found_serialheader) {
@@ -1467,6 +1476,9 @@ DltReturnValue dlt_gateway_process_passive_node_messages(DltDaemon *daemon,
             return DLT_RETURN_ERROR;
         }
     }
+
+    if (b_reset_receiver)
+        dlt_receiver_remove(receiver, receiver->bytesRcvd);
 
     if (dlt_receiver_move_to_begin(receiver) == -1) {
         /* Return value ignored */
@@ -1539,7 +1551,7 @@ int dlt_gateway_forward_control_message(DltGateway *gateway,
     for (i = 0; i < gateway->num_connections; i++)
         if (strncmp(gateway->connections[i].ecuid,
                     ecu,
-                    strlen(gateway->connections[i].ecuid)) == 0) {
+                    DLT_ID_SIZE) == 0) {
             con = &gateway->connections[i];
             break;
         }
